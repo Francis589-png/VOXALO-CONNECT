@@ -1,6 +1,6 @@
 'use client';
 import { getToken } from 'firebase/messaging';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { messaging, db } from './firebase';
 import { User, Message } from '@/types';
 
@@ -11,7 +11,7 @@ export async function requestNotificationPermission(userId: string) {
   }
   
   try {
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.ready;
     console.log('Service Worker registered with scope:', registration.scope);
   } catch (error) {
     console.error('Service Worker registration failed:', error);
@@ -58,12 +58,12 @@ export async function sendNotification(recipient: User, message: Partial<Message
         return;
     }
 
-    // IMPORTANT: This key is exposed on the client side and is a security risk.
-    // For production, use a server-side function to send notifications.
-    const serverKey = 'YOUR_FCM_SERVER_KEY'; // TODO: Replace with your actual server key
+    // IMPORTANT: This key should be stored securely and not exposed on the client side in a real production app.
+    // For production, use a server-side function (e.g., Firebase Cloud Function) to send notifications.
+    const serverKey = ''; // TODO: Replace with your actual FCM server key from the Firebase console.
     
-    if (serverKey === 'YOUR_FCM_SERVER_KEY') {
-        console.error('FCM Server Key is not set. Please replace the placeholder in src/lib/fcm.ts.');
+    if (!serverKey) {
+        console.warn('FCM Server Key is not set in src/lib/fcm.ts. Notifications will not be sent.');
         return;
     }
 
@@ -73,10 +73,12 @@ export async function sendNotification(recipient: User, message: Partial<Message
             title: `Message from ${sender.displayName || 'a friend'}`,
             body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
             icon: sender.photoURL || '/icon.png',
-            click_action: `${window.location.origin}`
+            click_action: `${window.location.origin}`,
+            sound: '/notification.mp3'
         },
         data: {
             chatId: [sender.uid, recipient.uid].sort().join('_'),
+            senderId: sender.uid,
         }
     };
     
