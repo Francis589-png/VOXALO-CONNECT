@@ -15,7 +15,7 @@ export interface Message {
   id: string;
   text: string;
   senderId: string;
-  timestamp: Timestamp | Date; // Allow Date for AI messages
+  timestamp: Timestamp | Date; // Allow Date for local AI messages
   fileUrl?: string;
   fileType?: string;
   fileName?: string;

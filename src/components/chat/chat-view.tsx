@@ -26,7 +26,6 @@ import {
   MessageCircleIcon,
   MoreHorizontal,
   Trash,
-  Undo,
 } from 'lucide-react';
 import { useEffect, useRef, useState, ChangeEvent } from 'react';
 import { formatRelative } from 'date-fns';
@@ -66,13 +65,13 @@ function ReadReceipt({
   isOwnMessage: boolean;
   recipientHasRead: boolean;
 }) {
-  if (!isOwnMessage) return null;
+  const isAiMessage = message.senderId === 'ai-assistant';
+  if (!isOwnMessage || isAiMessage) return null;
 
   if (recipientHasRead) {
     return <CheckCheck className="h-4 w-4 text-blue-500" />;
   }
 
-  // For sent/delivered status
   return <Check className="h-4 w-4 text-muted-foreground" />;
 }
 
@@ -93,6 +92,15 @@ function MessageBubble({
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
   const renderContent = () => {
+    if (message.text === '...') {
+        return (
+            <div className="flex items-center gap-2">
+                <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                <div className="h-2 w-2 bg-current rounded-full animate-bounce"></div>
+            </div>
+        )
+    }
     if (message.fileType?.startsWith('image/')) {
       return (
         <img
@@ -205,58 +213,52 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       : null;
 
   useEffect(() => {
-    if (selectedUser && !isAiAssistant) {
-      const userDocRef = doc(db, 'users', selectedUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setSelectedUserData(docSnap.data() as User);
-        }
-      });
-      return () => unsubscribe();
-    } else if (isAiAssistant) {
+    if (selectedUser) {
+      if (isAiAssistant) {
         setSelectedUserData(selectedUser);
-        setMessages([]); // Clear messages when switching to AI chat
+      } else {
+        const userDocRef = doc(db, 'users', selectedUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+            setSelectedUserData(docSnap.data() as User);
+          }
+        });
+        return () => unsubscribe();
+      }
     }
   }, [selectedUser, isAiAssistant]);
-
+  
   useEffect(() => {
-    if (!chatId || !selectedUser?.uid || isAiAssistant) {
-        if (!isAiAssistant) {
-            setMessages([]);
-        }
-        return;
-    };
-
+    if (!chatId || !selectedUser?.uid) {
+      setMessages([]);
+      return;
+    }
+  
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'asc'));
-
+  
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData = snapshot.docs
-        .map(
-          (doc) =>
-            ({
-              id: doc.id,
-              ...doc.data(),
-            } as Message)
-        )
-        .filter((msg) => !msg.deletedFor?.includes(currentUser.uid));
+        .map(doc => ({ id: doc.id, ...doc.data() } as Message))
+        .filter(msg => !msg.deletedFor?.includes(currentUser.uid));
         
       setMessages(messagesData);
-
-      // Mark messages as read by the current user
-      messagesData.forEach((message) => {
-        if (
-          message.senderId === selectedUser?.uid &&
-          !message.readBy?.includes(currentUser.uid)
-        ) {
-          const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
-          updateDoc(messageRef, {
-            readBy: arrayUnion(currentUser.uid),
-          });
-        }
-      });
+  
+      if (!isAiAssistant) {
+        messagesData.forEach((message) => {
+          if (
+            message.senderId === selectedUser.uid &&
+            !message.readBy?.includes(currentUser.uid)
+          ) {
+            const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+            updateDoc(messageRef, {
+              readBy: arrayUnion(currentUser.uid),
+            });
+          }
+        });
+      }
     });
-
+  
     return () => unsubscribe();
   }, [chatId, currentUser.uid, selectedUser?.uid, isAiAssistant]);
 
@@ -274,7 +276,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
 
-  const sendHumanMessage = async (messageData: any) => {
+  const sendHumanMessage = async (messageData: Partial<Message>) => {
     if (!chatId || !selectedUser) return;
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
@@ -328,52 +330,77 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   };
 
   const handleAiMessage = async (messageText: string) => {
-      const userMessage: Message = {
-        id: `user-${Date.now()}`,
-        text: messageText,
-        senderId: currentUser.uid,
-        timestamp: Timestamp.now(),
-      };
-      setMessages(prev => [...prev, userMessage]);
-      setNewMessage('');
+    if (!chatId) return;
   
-      const thinkingMessage: Message = {
-        id: `ai-thinking-${Date.now()}`,
-        text: '...',
-        senderId: 'ai-assistant',
-        timestamp: Timestamp.now(),
-      };
-      setMessages(prev => [...prev, thinkingMessage]);
+    const userMessage: Partial<Message> = {
+      text: messageText,
+      senderId: currentUser.uid,
+      timestamp: serverTimestamp(),
+      readBy: [],
+      deletedFor: [],
+    };
+    
+    // Save user message to Firestore
+    const userMessageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), userMessage);
+    setNewMessage('');
   
-      try {
-        const historyForAI = [...messages, userMessage]
-            .map(msg => ({
-                role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
-                content: msg.text,
-            }));
+    // Add a temporary thinking message
+    const thinkingMessage: Message = {
+      id: `ai-thinking-${Date.now()}`,
+      text: '...',
+      senderId: 'ai-assistant',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, thinkingMessage]);
+  
+    try {
+        const historySnapshot = await getDoc(doc(db, 'chats', chatId));
+        const messagesSnapshot = await query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
 
-        const { response } = await aiChatFlow({ 
-            history: historyForAI,
-            message: messageText, // message is used by the history
+        const currentMessages: Message[] = [];
+        onSnapshot(messagesSnapshot, (snapshot) => {
+            snapshot.forEach((doc) => {
+                currentMessages.push(doc.data() as Message);
+            });
         });
 
-        const aiMessage: Message = {
-          id: `ai-${Date.now()}`,
-          text: response,
-          senderId: 'ai-assistant',
-          timestamp: Timestamp.now(),
-        };
-        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(aiMessage));
-      } catch (error) {
-        console.error("AI chat failed:", error);
-        const errorMessage: Message = {
-            id: `ai-error-${Date.now()}`,
-            text: "Sorry, I couldn't process that. Please try again.",
-            senderId: 'ai-assistant',
-            timestamp: Timestamp.now(),
-        };
-        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(errorMessage));
-      }
+      const historyForAI = messages
+        .filter(m => m.id !== thinkingMessage.id)
+        .map(msg => ({
+          role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
+          content: msg.text,
+        }));
+        
+        historyForAI.push({ role: 'user', content: messageText });
+
+      const { response } = await aiChatFlow({ 
+        history: historyForAI,
+        message: messageText,
+      });
+  
+      // Save AI response to Firestore
+      const aiMessage: Partial<Message> = {
+        text: response,
+        senderId: 'ai-assistant',
+        timestamp: serverTimestamp(),
+        readBy: [],
+        deletedFor: [],
+      };
+      await addDoc(collection(db, 'chats', chatId, 'messages'), aiMessage);
+
+      // Remove thinking message
+      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+
+    } catch (error) {
+      console.error("AI chat failed:", error);
+      const errorMessage: Partial<Message> = {
+        text: "Sorry, I couldn't process that. Please try again.",
+        senderId: 'ai-assistant',
+        timestamp: serverTimestamp(),
+      };
+      await addDoc(collection(db, 'chats', chatId, 'messages'), errorMessage);
+      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+    }
   }
 
 
@@ -381,6 +408,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     e.preventDefault();
     const currentMessage = newMessage.trim();
     if (!currentMessage && !audioBlob) return;
+
     if (isAiAssistant) {
         if (currentMessage) {
             handleAiMessage(currentMessage);
@@ -388,9 +416,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         setAudioBlob(null);
         return;
     }
+    
     if (!chatId || !selectedUser) return;
 
-    let messageData: any;
+    let messageData: Partial<Message>;
 
     if (audioBlob) {
       setUploading(true);
@@ -512,10 +541,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   };
 
   const handleDeleteForMe = async (messageId: string) => {
-    if (isAiAssistant) {
-        setMessages(prev => prev.filter(m => m.id !== messageId));
-        return;
-    }
     if (!chatId) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await updateDoc(messageRef, {
@@ -524,7 +549,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   }
 
   const handleDeleteForEveryone = async (messageId: string) => {
-    if (!chatId || isAiAssistant) return;
+    if (!chatId) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await deleteDoc(messageRef);
   }
@@ -570,6 +595,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
                 const recipientHasRead =
+                  !isAiAssistant &&
                   selectedUserData?.readReceiptsEnabled !== false &&
                   !!message.readBy?.includes(selectedUser.uid);
                 return (
