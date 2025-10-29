@@ -2,7 +2,6 @@
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { LogOut, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/types';
 import ChatView from './chat-view';
@@ -14,23 +13,27 @@ import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import ContactsList from './contacts-list';
 import ExplorePage from './explore-page';
+import type { User as FirebaseUser } from 'firebase/auth';
 
-export default function ChatLayout() {
-  const { user } = useAuth();
+interface ChatLayoutProps {
+  currentUser: FirebaseUser;
+}
+
+export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (!currentUser) return;
     const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('uid', '!=', user.uid));
+    const q = query(usersRef, where('uid', '!=', currentUser.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData = snapshot.docs.map((doc) => doc.data() as User);
       setUsers(usersData);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [currentUser]);
 
   const handleSelectUser = (user: User) => {
     setSelectedUser(user);
@@ -96,7 +99,7 @@ export default function ChatLayout() {
         </Tabs>
       </div>
       <div className="hidden flex-1 md:flex">
-        <ChatView currentUser={user!} selectedUser={selectedUser} />
+        <ChatView currentUser={currentUser} selectedUser={selectedUser} />
       </div>
     </div>
   );
