@@ -4,7 +4,7 @@
  *
  * - aiChatFlow - A function that takes a message and returns an AI-generated response.
  * - AiChatInput - The input type for the aiChatFlow function.
- * - AiChatOutput - The return type for the aiChatFlow function.
+ * - AiChatOutput - The return type for the ai--chat-flow function.
  */
 
 import { ai } from '@/ai/genkit';
@@ -16,7 +16,7 @@ const MessageSchema = z.object({
 });
 
 const AiChatInputSchema = z.object({
-  history: z.array(MessageSchema).describe('The conversation history.'),
+  history: z.array(MessageSchema).optional().describe('The conversation history.'),
   message: z.string().describe("The user's message to the AI assistant."),
 });
 export type AiChatInput = z.infer<typeof AiChatInputSchema>;
@@ -32,12 +32,13 @@ export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
     content: [{ text: msg.content }],
   }));
 
-  // The last message in the history is the current user message, so we don't need to add it separately.
   const { text } = await ai.generate({
     history,
     prompt: `You are King AJ, a helpful AI assistant. Your name is strictly King AJ. Respond to the user's message in a conversational and friendly tone.
 
-If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.`,
+If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.
+
+${input.message}`,
   });
 
   return { response: text };
