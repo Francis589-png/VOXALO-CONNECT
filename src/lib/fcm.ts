@@ -58,9 +58,12 @@ export async function sendNotification(recipient: User, message: Partial<Message
         return;
     }
 
-    const serverKey = process.env.NEXT_PUBLIC_FCM_SERVER_KEY;
-    if (!serverKey) {
-        console.error('FCM Server Key not found in environment variables.');
+    // IMPORTANT: This key is exposed on the client side and is a security risk.
+    // For production, use a server-side function to send notifications.
+    const serverKey = 'YOUR_FCM_SERVER_KEY'; // TODO: Replace with your actual server key
+    
+    if (serverKey === 'YOUR_FCM_SERVER_KEY') {
+        console.error('FCM Server Key is not set. Please replace the placeholder in src/lib/fcm.ts.');
         return;
     }
 
@@ -97,5 +100,3 @@ export async function sendNotification(recipient: User, message: Partial<Message
         console.error('Error sending notification:', error);
     }
 }
-
-    
