@@ -342,7 +342,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         setMessages(prev => [...prev, thinkingMessage]);
 
         try {
-            const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'desc')));
+            const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc')));
             
             const historyForAI = historySnapshot.docs
             .map(doc => doc.data() as Message)
@@ -350,8 +350,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
                 content: msg.text,
             }));
-            
-            historyForAI.reverse(); // arrange from oldest to newest
 
             const { response } = await aiChatFlow({ 
                 history: historyForAI,
