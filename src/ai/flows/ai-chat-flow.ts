@@ -16,7 +16,7 @@ const MessageSchema = z.object({
 });
 
 const AiChatInputSchema = z.object({
-  history: z.array(MessageSchema).describe('The conversation history.'),
+  history: z.array(MessageSchema).describe('The conversation history.').optional(),
   message: z.string().describe("The user's message to the AI assistant."),
 });
 export type AiChatInput = z.infer<typeof AiChatInputSchema>;
@@ -27,7 +27,7 @@ const AiChatOutputSchema = z.object({
 export type AiChatOutput = z.infer<typeof AiChatOutputSchema>;
 
 export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
-  const history = input.history.map((msg) => ({
+  const history = (input.history || []).map((msg) => ({
     role: msg.role,
     content: [{ text: msg.content }],
   }));
