@@ -1,7 +1,7 @@
 'use client';
 
-import { Camera, Upload, User as UserIcon } from 'lucide-react';
-import { ChangeEvent, useRef, useState } from 'react';
+import { Camera, User as UserIcon } from 'lucide-react';
+import { ChangeEvent, useRef, useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -20,6 +20,12 @@ export default function ProfilePictureUploader({
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (initialImageUrl) {
+        setPreviewUrl(initialImageUrl);
+    }
+  }, [initialImageUrl]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,7 +82,7 @@ export default function ProfilePictureUploader({
         accept="image/png, image/jpeg, image/gif"
       />
       <p className="text-sm text-muted-foreground">
-        Click the camera to upload a picture.
+        Click the camera to upload a new picture.
       </p>
     </div>
   );

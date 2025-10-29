@@ -1,7 +1,8 @@
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { LogOut, Search } from 'lucide-react';
+import { LogOut, Search, User as UserIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/types';
 import ChatView from './chat-view';
@@ -14,6 +15,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import ContactsList from './contacts-list';
 import ExplorePage from './explore-page';
 import type { User as FirebaseUser } from 'firebase/auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+
 
 interface ChatLayoutProps {
   currentUser: FirebaseUser;
@@ -51,18 +62,37 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
             <Icons.logo className="h-8 w-8 text-primary" />
             <h1 className="text-xl font-bold">VoxaLo</h1>
           </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => auth.signOut()}>
-                  <LogOut className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Sign Out</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-10 w-10 rounded-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={currentUser.photoURL!} alt={currentUser.displayName!} />
+                  <AvatarFallback>{currentUser.displayName?.[0]}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end">
+              <DropdownMenuLabel>
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">{currentUser.displayName}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {currentUser.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => auth.signOut()}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign Out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
