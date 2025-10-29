@@ -11,6 +11,7 @@ import {
   addDoc,
   serverTimestamp,
   deleteDoc,
+  getDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
@@ -57,7 +58,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     const incomingUnsubscribe = onSnapshot(incomingQ, async (snapshot) => {
         const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest));
         const requestsWithSender = await Promise.all(requests.map(async (req) => {
-            const senderDoc = await doc(db, 'users', req.senderId).get();
+            const senderDoc = await getDoc(doc(db, 'users', req.senderId));
             return { ...req, sender: senderDoc.data() as User };
         }));
         setIncomingRequests(requestsWithSender);
@@ -67,7 +68,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     const outgoingUnsubscribe = onSnapshot(outgoingQ, async (snapshot) => {
         const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FriendRequest));
         const requestsWithReceiver = await Promise.all(requests.map(async (req) => {
-            const receiverDoc = await doc(db, 'users', req.receiverId).get();
+            const receiverDoc = await getDoc(doc(db, 'users', req.receiverId));
             return { ...req, receiver: receiverDoc.data() as User };
         }));
         setOutgoingRequests(requestsWithReceiver);
@@ -75,18 +76,20 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     
     const friendshipsRef = collection(db, 'friendships');
     const friendshipsQ = query(friendshipsRef, where('users', 'array-contains', user.uid));
-    const friendshipsUnsubscribe = onSnapshot(friendshipsQ, (snapshot) => {
-      const friendshipsData = snapshot.docs.map(doc => {
+    const friendshipsUnsubscribe = onSnapshot(friendshipsQ, async (snapshot) => {
+      const friendshipsData = await Promise.all(snapshot.docs.map(async (doc) => {
         const data = doc.data();
         const friendId = data.users.find((id: string) => id !== user.uid);
-        const friend = users.find(u => u.uid === friendId);
+        const userDoc = await getDoc(doc(db, 'users', friendId));
+        const friend = userDoc.data() as User;
+        
         return {
           id: doc.id,
           ...data,
           friend,
         } as Friendship;
-      }).filter(f => f.friend);
-      setFriendships(friendshipsData);
+      }));
+      setFriendships(friendshipsData.filter(f => f.friend));
     });
 
     return () => {
@@ -95,22 +98,25 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
         outgoingUnsubscribe();
         friendshipsUnsubscribe();
     };
-  }, [user, users]);
+  }, [user]);
 
   const acceptFriendRequest = async (requestId: string) => {
     const requestRef = doc(db, 'friendRequests', requestId);
-    const requestSnap = await requestRef.get();
+    const requestSnap = await getDoc(requestRef);
     if(requestSnap.exists()){
         const request = requestSnap.data() as FriendRequest;
         await updateDoc(requestRef, { status: 'accepted' });
+        
+        const senderDoc = await getDoc(doc(db, 'users', request.senderId));
+        const receiverDoc = await getDoc(doc(db, 'users', request.receiverId));
 
         const friendshipRef = collection(db, 'friendships');
         await addDoc(friendshipRef, {
             users: [request.senderId, request.receiverId],
             createdAt: serverTimestamp(),
             userInfos: {
-                [request.senderId]: users.find(u => u.uid === request.senderId),
-                [request.receiverId]: users.find(u => u.uid === request.receiverId)
+                [request.senderId]: senderDoc.data(),
+                [request.receiverId]: receiverDoc.data()
             }
         });
     }
