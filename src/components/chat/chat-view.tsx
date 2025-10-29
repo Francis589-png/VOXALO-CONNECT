@@ -328,16 +328,16 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   };
 
   const handleAiMessage = async (messageText: string) => {
-    const userMessage: Message = {
+      const userMessage: Message = {
         id: `user-${Date.now()}`,
         text: messageText,
         senderId: currentUser.uid,
         timestamp: Timestamp.now(),
       };
-      setMessages(prev => [...prev, userMessage]);
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
       setNewMessage('');
   
-      // Add a temporary "thinking" message from the AI
       const thinkingMessage: Message = {
         id: `ai-thinking-${Date.now()}`,
         text: '...',
@@ -347,14 +347,24 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       setMessages(prev => [...prev, thinkingMessage]);
   
       try {
-        const { response } = await aiChatFlow({ message: messageText });
+        const history = updatedMessages
+            .filter(m => m.id !== thinkingMessage.id)
+            .map(msg => ({
+                role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
+                content: msg.text,
+            }));
+
+        const { response } = await aiChatFlow({ 
+            history: history.slice(0, -1), // Send history up to the last user message
+            message: messageText,
+        });
+
         const aiMessage: Message = {
           id: `ai-${Date.now()}`,
           text: response,
           senderId: 'ai-assistant',
           timestamp: Timestamp.now(),
         };
-        // Replace "thinking" message with the actual response
         setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(aiMessage));
       } catch (error) {
         console.error("AI chat failed:", error);
@@ -377,7 +387,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         if (currentMessage) {
             handleAiMessage(currentMessage);
         }
-        // Note: audio/file messages to AI are not implemented in this example
         setAudioBlob(null);
         return;
     }
@@ -441,7 +450,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     const formData = new FormData();
     formData.append('file', file);
 
-    // Simulate progress for UX
     const progressInterval = setInterval(() => {
       setUploadProgress((prev) => (prev < 90 ? prev + 10 : prev));
     }, 200);
