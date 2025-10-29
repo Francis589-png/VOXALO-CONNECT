@@ -25,6 +25,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
+const aiAssistant: User = {
+  uid: 'ai-assistant',
+  displayName: 'AI Assistant',
+  email: 'ai@voxalo.com',
+  photoURL: '', // Will be replaced by bot icon
+};
 
 interface ChatLayoutProps {
   currentUser: FirebaseUser;
@@ -41,7 +47,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
     const q = query(usersRef, where('uid', '!=', currentUser.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData = snapshot.docs.map((doc) => doc.data() as User);
-      setUsers(usersData);
+      setUsers([aiAssistant, ...usersData]);
     });
     return () => unsubscribe();
   }, [currentUser]);

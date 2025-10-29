@@ -52,21 +52,3 @@ async function getAndSaveToken(userId: string) {
     console.error('An error occurred while retrieving token. ', error);
   }
 }
-
-export async function sendNotification(recipient: User, message: Partial<Message>, sender: User) {
-    if (!recipient.fcmToken) {
-        console.log("Recipient does not have a FCM token.");
-        return;
-    }
-
-    try {
-        await sendNotificationFlow({
-            recipientToken: recipient.fcmToken,
-            title: sender.displayName || 'New Message',
-            body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
-        });
-        console.log('Notification sent successfully via server flow.');
-    } catch (error) {
-        console.error('Failed to send notification via server flow:', error);
-    }
-}

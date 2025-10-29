@@ -42,13 +42,15 @@ import { useFriends } from '../providers/friends-provider';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { sendNotification } from '@/lib/fcm';
+import { sendNotificationFlow } from '@/ai/flows/send-notification-flow';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { aiChatFlow } from '@/ai/flows/ai-chat-flow';
+import { Icons } from '../icons';
 
 interface ChatViewProps {
   currentUser: FirebaseUser;
@@ -192,8 +194,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const { toast } = useToast();
   const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
 
+  const isAiAssistant = selectedUser?.uid === 'ai-assistant';
+
   const canChat =
-    selectedUser && friendships.some((f) => f.friend.uid === selectedUser.uid);
+    isAiAssistant || (selectedUser && friendships.some((f) => f.friend.uid === selectedUser.uid));
 
   const chatId =
     currentUser && selectedUser
@@ -201,7 +205,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       : null;
 
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedUser && !isAiAssistant) {
       const userDocRef = doc(db, 'users', selectedUser.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -209,11 +213,19 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         }
       });
       return () => unsubscribe();
+    } else if (isAiAssistant) {
+        setSelectedUserData(selectedUser);
+        setMessages([]); // Clear messages when switching to AI chat
     }
-  }, [selectedUser]);
+  }, [selectedUser, isAiAssistant]);
 
   useEffect(() => {
-    if (!chatId || !selectedUser?.uid) return;
+    if (!chatId || !selectedUser?.uid || isAiAssistant) {
+        if (!isAiAssistant) {
+            setMessages([]);
+        }
+        return;
+    };
 
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'asc'));
@@ -246,7 +258,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     });
 
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, selectedUser?.uid]);
+  }, [chatId, currentUser.uid, selectedUser?.uid, isAiAssistant]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -262,7 +274,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
 
-  const sendMessage = async (messageData: any) => {
+  const sendHumanMessage = async (messageData: any) => {
     if (!chatId || !selectedUser) return;
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
@@ -297,19 +309,79 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       { merge: true }
     );
 
-    if (selectedUserData) {
-      await sendNotification(selectedUserData, messageData, {
-        uid: currentUser.uid,
-        displayName: currentUser.displayName,
-        email: currentUser.email,
-        photoURL: currentUser.photoURL,
-      });
+    if (selectedUserData?.fcmToken) {
+        try {
+            await sendNotificationFlow({
+                recipientToken: selectedUserData.fcmToken,
+                title: currentUser.displayName || 'New Message',
+                body: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+            });
+        } catch (error) {
+            console.error('Failed to send notification via server flow:', error);
+            toast({
+                title: 'Notification Error',
+                description: 'Could not send notification.',
+                variant: 'destructive',
+            });
+        }
     }
   };
 
+  const handleAiMessage = async (messageText: string) => {
+    const userMessage: Message = {
+        id: `user-${Date.now()}`,
+        text: messageText,
+        senderId: currentUser.uid,
+        timestamp: Timestamp.now(),
+      };
+      setMessages(prev => [...prev, userMessage]);
+      setNewMessage('');
+  
+      // Add a temporary "thinking" message from the AI
+      const thinkingMessage: Message = {
+        id: `ai-thinking-${Date.now()}`,
+        text: '...',
+        senderId: 'ai-assistant',
+        timestamp: Timestamp.now(),
+      };
+      setMessages(prev => [...prev, thinkingMessage]);
+  
+      try {
+        const { response } = await aiChatFlow({ message: messageText });
+        const aiMessage: Message = {
+          id: `ai-${Date.now()}`,
+          text: response,
+          senderId: 'ai-assistant',
+          timestamp: Timestamp.now(),
+        };
+        // Replace "thinking" message with the actual response
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(aiMessage));
+      } catch (error) {
+        console.error("AI chat failed:", error);
+        const errorMessage: Message = {
+            id: `ai-error-${Date.now()}`,
+            text: "Sorry, I couldn't process that. Please try again.",
+            senderId: 'ai-assistant',
+            timestamp: Timestamp.now(),
+        };
+        setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(errorMessage));
+      }
+  }
+
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!newMessage.trim() && !audioBlob) || !chatId || !selectedUser) return;
+    const currentMessage = newMessage.trim();
+    if (!currentMessage && !audioBlob) return;
+    if (isAiAssistant) {
+        if (currentMessage) {
+            handleAiMessage(currentMessage);
+        }
+        // Note: audio/file messages to AI are not implemented in this example
+        setAudioBlob(null);
+        return;
+    }
+    if (!chatId || !selectedUser) return;
 
     let messageData: any;
 
@@ -355,13 +427,13 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       };
     }
 
-    await sendMessage(messageData);
+    await sendHumanMessage(messageData);
     setNewMessage('');
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !chatId || !selectedUser) return;
+    if (!file || !chatId || !selectedUser || isAiAssistant) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -390,7 +462,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         readBy: [],
         deletedFor: [],
       };
-      await sendMessage(messageData);
+      await sendHumanMessage(messageData);
     } else {
       toast({
         title: 'Upload Failed',
@@ -434,6 +506,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   };
 
   const handleDeleteForMe = async (messageId: string) => {
+    if (isAiAssistant) {
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+        return;
+    }
     if (!chatId) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await updateDoc(messageRef, {
@@ -442,7 +518,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   }
 
   const handleDeleteForEveryone = async (messageId: string) => {
-    if (!chatId) return;
+    if (!chatId || isAiAssistant) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await deleteDoc(messageRef);
   }
@@ -465,11 +541,19 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     <div className="flex h-full max-h-screen flex-col">
       <div className="flex items-center gap-4 border-b p-4">
         <Avatar className="h-10 w-10">
-          <AvatarImage
-            src={selectedUser.photoURL!}
-            alt={selectedUser.displayName!}
-          />
-          <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
+          {isAiAssistant ? (
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-primary/20 text-primary">
+                <Icons.bot className="h-6 w-6" />
+            </div>
+          ) : (
+            <>
+              <AvatarImage
+                src={selectedUser.photoURL!}
+                alt={selectedUser.displayName!}
+              />
+              <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
+            </>
+          )}
         </Avatar>
         <h2 className="text-lg font-semibold">{selectedUser.displayName}</h2>
       </div>
@@ -526,13 +610,14 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
+                disabled={isAiAssistant}
               />
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isRecording || !!audioBlob}
+                disabled={isRecording || !!audioBlob || isAiAssistant}
               >
                 <Paperclip className="h-5 w-5" />
               </Button>
@@ -541,7 +626,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 size="icon"
                 variant={isRecording ? 'destructive' : 'ghost'}
                 onClick={handleMicClick}
-                disabled={!!audioBlob}
+                disabled={!!audioBlob || isAiAssistant}
               >
                 <Mic className="h-5 w-5" />
               </Button>

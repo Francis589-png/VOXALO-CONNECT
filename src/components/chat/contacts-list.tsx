@@ -10,6 +10,7 @@ import type { Timestamp } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { onValue, ref } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
+import { Icons } from '../icons';
 
 interface ContactsListProps {
   users: User[];
@@ -60,6 +61,8 @@ export default function ContactsList({
 }: ContactsListProps) {
   const { friendships } = useFriends();
 
+  const aiAssistant = users.find(u => u.uid === 'ai-assistant');
+
   const friends = friendships.map(f => f.friend).filter(Boolean);
   const friendUids = friends.map(f => f.uid);
 
@@ -73,9 +76,10 @@ export default function ContactsList({
 
   // Get the complete friend objects from the map
   const friendUsers = Array.from(friendMap.values());
+  const allContacts = aiAssistant ? [aiAssistant, ...friendUsers] : friendUsers;
 
 
-  if (friendUsers.length === 0) {
+  if (allContacts.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-center">
             <p className="text-muted-foreground">No contacts found.</p>
@@ -90,7 +94,7 @@ export default function ContactsList({
   return (
     <ScrollArea className="h-full">
         <div className="flex flex-col">
-        {friendUsers.map((contact) => (
+        {allContacts.map((contact) => (
             <button
             key={contact.uid}
             onClick={() => onSelectUser(contact)}
@@ -99,12 +103,27 @@ export default function ContactsList({
             }`}
             >
             <Avatar className="h-10 w-10">
-                <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
-                <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
+                {contact.uid === 'ai-assistant' ? (
+                     <div className="flex h-full w-full items-center justify-center rounded-full bg-primary/20 text-primary">
+                        <Icons.bot className="h-6 w-6" />
+                    </div>
+                ) : (
+                    <>
+                        <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
+                        <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
+                    </>
+                )}
             </Avatar>
             <div className="flex-1 overflow-hidden">
                 <p className="font-semibold truncate">{contact.displayName}</p>
-                <UserPresence userId={contact.uid} />
+                {contact.uid === 'ai-assistant' ? (
+                     <div className="flex items-center gap-1.5">
+                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                        <p className="text-xs text-muted-foreground truncate">Online</p>
+                    </div>
+                ) : (
+                    <UserPresence userId={contact.uid} />
+                )}
             </div>
             </button>
         ))}
