@@ -11,7 +11,7 @@ import {
   Timestamp,
   updateDoc,
   arrayUnion,
-  getDoc,
+  getDocs,
   deleteDoc,
   arrayRemove,
 } from 'firebase/firestore';
@@ -88,7 +88,7 @@ function MessageBubble({
   onDeleteForMe: (messageId: string) => void;
   onDeleteForEveryone: (messageId: string) => void;
 }) {
-  const date = (message.timestamp as Timestamp)?.toDate();
+  const date = (message.timestamp as Timestamp)?.toDate ? (message.timestamp as Timestamp).toDate() : (message.timestamp as Date);
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
   const renderContent = () => {
@@ -229,7 +229,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   }, [selectedUser, isAiAssistant]);
   
   useEffect(() => {
-    if (!chatId || !selectedUser?.uid) {
+    if (!chatId) {
       setMessages([]);
       return;
     }
@@ -276,147 +276,11 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
 
-  const sendHumanMessage = async (messageData: Partial<Message>) => {
-    if (!chatId || !selectedUser) return;
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
-    await addDoc(messagesRef, messageData);
-
-    const chatRef = doc(db, 'chats', chatId);
-    await setDoc(
-      chatRef,
-      {
-        users: [currentUser.uid, selectedUser.uid],
-        userInfos: [
-          {
-            uid: currentUser.uid,
-            displayName: currentUser.displayName,
-            email: currentUser.email,
-            photoURL: currentUser.photoURL,
-          },
-          {
-            uid: selectedUser.uid,
-            displayName: selectedUser.displayName,
-            email: selectedUser.email,
-            photoURL: selectedUser.photoURL,
-          },
-        ],
-        lastMessage: {
-          text:
-            messageData.text ||
-            `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
-          senderId: messageData.senderId,
-          timestamp: messageData.timestamp,
-        },
-      },
-      { merge: true }
-    );
-
-    if (selectedUserData?.fcmToken) {
-        try {
-            await sendNotificationFlow({
-                recipientToken: selectedUserData.fcmToken,
-                title: currentUser.displayName || 'New Message',
-                body: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
-            });
-        } catch (error) {
-            console.error('Failed to send notification via server flow:', error);
-            toast({
-                title: 'Notification Error',
-                description: 'Could not send notification.',
-                variant: 'destructive',
-            });
-        }
-    }
-  };
-
-  const handleAiMessage = async (messageText: string) => {
-    if (!chatId) return;
-  
-    const userMessage: Partial<Message> = {
-      text: messageText,
-      senderId: currentUser.uid,
-      timestamp: serverTimestamp(),
-      readBy: [],
-      deletedFor: [],
-    };
-    
-    // Save user message to Firestore
-    const userMessageRef = await addDoc(collection(db, 'chats', chatId, 'messages'), userMessage);
-    setNewMessage('');
-  
-    // Add a temporary thinking message
-    const thinkingMessage: Message = {
-      id: `ai-thinking-${Date.now()}`,
-      text: '...',
-      senderId: 'ai-assistant',
-      timestamp: new Date(),
-    };
-    setMessages(prev => [...prev, thinkingMessage]);
-  
-    try {
-        const historySnapshot = await getDoc(doc(db, 'chats', chatId));
-        const messagesSnapshot = await query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
-
-        const currentMessages: Message[] = [];
-        onSnapshot(messagesSnapshot, (snapshot) => {
-            snapshot.forEach((doc) => {
-                currentMessages.push(doc.data() as Message);
-            });
-        });
-
-      const historyForAI = messages
-        .filter(m => m.id !== thinkingMessage.id)
-        .map(msg => ({
-          role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
-          content: msg.text,
-        }));
-        
-        historyForAI.push({ role: 'user', content: messageText });
-
-      const { response } = await aiChatFlow({ 
-        history: historyForAI,
-        message: messageText,
-      });
-  
-      // Save AI response to Firestore
-      const aiMessage: Partial<Message> = {
-        text: response,
-        senderId: 'ai-assistant',
-        timestamp: serverTimestamp(),
-        readBy: [],
-        deletedFor: [],
-      };
-      await addDoc(collection(db, 'chats', chatId, 'messages'), aiMessage);
-
-      // Remove thinking message
-      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
-
-    } catch (error) {
-      console.error("AI chat failed:", error);
-      const errorMessage: Partial<Message> = {
-        text: "Sorry, I couldn't process that. Please try again.",
-        senderId: 'ai-assistant',
-        timestamp: serverTimestamp(),
-      };
-      await addDoc(collection(db, 'chats', chatId, 'messages'), errorMessage);
-      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
-    }
-  }
-
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const currentMessage = newMessage.trim();
     if (!currentMessage && !audioBlob) return;
 
-    if (isAiAssistant) {
-        if (currentMessage) {
-            handleAiMessage(currentMessage);
-        }
-        setAudioBlob(null);
-        return;
-    }
-    
     if (!chatId || !selectedUser) return;
 
     let messageData: Partial<Message>;
@@ -462,9 +326,107 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         deletedFor: [],
       };
     }
-
-    await sendHumanMessage(messageData);
+    
     setNewMessage('');
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    await addDoc(messagesRef, messageData);
+    
+    if (isAiAssistant) {
+        // Add a temporary thinking message
+        const thinkingMessage: Message = {
+            id: `ai-thinking-${Date.now()}`,
+            text: '...',
+            senderId: 'ai-assistant',
+            timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, thinkingMessage]);
+
+        try {
+            const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'desc')));
+            
+            const historyForAI = historySnapshot.docs
+            .map(doc => doc.data() as Message)
+            .map(msg => ({
+                role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
+                content: msg.text,
+            }));
+            
+            historyForAI.reverse(); // arrange from oldest to newest
+
+            const { response } = await aiChatFlow({ 
+                history: historyForAI,
+                message: currentMessage
+            });
+            
+            const aiMessage: Partial<Message> = {
+                text: response,
+                senderId: 'ai-assistant',
+                timestamp: serverTimestamp(),
+                readBy: [],
+                deletedFor: [],
+            };
+            await addDoc(collection(db, 'chats', chatId, 'messages'), aiMessage);
+
+        } catch (error) {
+            console.error("AI chat failed:", error);
+            const errorMessage: Partial<Message> = {
+                text: "Sorry, I couldn't process that. Please try again.",
+                senderId: 'ai-assistant',
+                timestamp: serverTimestamp(),
+            };
+            await addDoc(collection(db, 'chats', chatId, 'messages'), errorMessage);
+        } finally {
+            setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+        }
+    } else {
+        // This is a human-to-human message
+        const chatRef = doc(db, 'chats', chatId);
+        await setDoc(
+          chatRef,
+          {
+            users: [currentUser.uid, selectedUser.uid],
+            userInfos: [
+              {
+                uid: currentUser.uid,
+                displayName: currentUser.displayName,
+                email: currentUser.email,
+                photoURL: currentUser.photoURL,
+              },
+              {
+                uid: selectedUser.uid,
+                displayName: selectedUser.displayName,
+                email: selectedUser.email,
+                photoURL: selectedUser.photoURL,
+              },
+            ],
+            lastMessage: {
+              text:
+                messageData.text ||
+                `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+              senderId: messageData.senderId,
+              timestamp: messageData.timestamp,
+            },
+          },
+          { merge: true }
+        );
+
+        if (selectedUserData?.fcmToken) {
+            try {
+                await sendNotificationFlow({
+                    recipientToken: selectedUserData.fcmToken,
+                    title: currentUser.displayName || 'New Message',
+                    body: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+                });
+            } catch (error) {
+                console.error('Failed to send notification via server flow:', error);
+                toast({
+                    title: 'Notification Error',
+                    description: 'Could not send notification.',
+                    variant: 'destructive',
+                });
+            }
+        }
+    }
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -497,7 +459,8 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         readBy: [],
         deletedFor: [],
       };
-      await sendHumanMessage(messageData);
+      // Not awaiting this intentionally to provide optimistic UI
+      addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
     } else {
       toast({
         title: 'Upload Failed',
