@@ -63,7 +63,7 @@ export async function sendNotification(recipient: User, message: Partial<Message
     const serverKey = ''; // TODO: Replace with your actual FCM server key from the Firebase console.
     
     if (!serverKey) {
-        console.warn('FCM Server Key is not set in src/lib/fcm.ts. Notifications will not be sent.');
+        console.warn('FCM Server Key is not set in src/lib/fcm.ts. Notifications will not be sent. Please get it from your Firebase project settings.');
         return;
     }
 
