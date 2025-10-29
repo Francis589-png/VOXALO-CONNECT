@@ -1,6 +1,6 @@
 'use client';
 import { getToken } from 'firebase/messaging';
-import { doc, updateDoc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { messaging, db } from './firebase';
 import { User, Message } from '@/types';
 
@@ -58,17 +58,41 @@ export async function sendNotification(recipient: User, message: Partial<Message
         return;
     }
 
-    try {
-        await addDoc(collection(db, 'notifications'), {
-            recipientId: recipient.uid,
-            recipientToken: recipient.fcmToken,
-            senderId: sender.uid,
-            senderName: sender.displayName,
-            senderPhoto: sender.photoURL,
-            messageText: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
+    const serverKey = process.env.NEXT_PUBLIC_FCM_SERVER_KEY;
+    if (!serverKey) {
+        console.error('FCM Server Key not found in environment variables.');
+        return;
+    }
+
+    const notificationPayload = {
+        to: recipient.fcmToken,
+        notification: {
+            title: sender.displayName || 'New Message',
+            body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
+            icon: sender.photoURL || '/icon.png',
+            click_action: `${window.location.origin}`
+        },
+        data: {
             chatId: [sender.uid, recipient.uid].sort().join('_'),
-            createdAt: serverTimestamp(),
+        }
+    };
+    
+    try {
+        const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `key=${serverKey}`
+            },
+            body: JSON.stringify(notificationPayload)
         });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            console.error('Error sending notification:', errorData);
+        } else {
+            console.log('Notification sent successfully');
+        }
     } catch(error) {
         console.error('Error sending notification:', error);
     }
