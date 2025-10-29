@@ -20,6 +20,7 @@ export interface Message {
   fileType?: string;
   fileName?: string;
   readBy?: string[];
+  deletedFor?: string[];
 }
 
 export interface Chat {
