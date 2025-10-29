@@ -1,4 +1,3 @@
-
 'use client';
 import {
   addDoc,
@@ -44,6 +43,7 @@ function ReadReceipt({ message, isOwnMessage, recipientHasRead }: { message: Mes
         return <CheckCheck className="h-4 w-4 text-blue-500" />;
     }
     
+    // For sent/delivered status
     return <Check className="h-4 w-4 text-muted-foreground" />;
 }
 
@@ -120,7 +120,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   }, [selectedUser]);
   
   useEffect(() => {
-    if (!chatId) return;
+    if (!chatId || !selectedUser?.uid) return;
 
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'asc'));
@@ -132,21 +132,19 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       })) as Message[];
       setMessages(messagesData);
 
-      // Mark messages as read
-      if (selectedUserData?.readReceiptsEnabled !== false) { // check if enabled, default to true
-        messagesData.forEach(message => {
-            if (message.senderId === selectedUser?.uid && !message.readBy?.includes(currentUser.uid)) {
-                const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
-                updateDoc(messageRef, {
-                    readBy: arrayUnion(currentUser.uid)
-                });
-            }
-        });
-      }
+      // Mark messages as read by the current user
+      messagesData.forEach(message => {
+          if (message.senderId === selectedUser?.uid && !message.readBy?.includes(currentUser.uid)) {
+              const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+              updateDoc(messageRef, {
+                  readBy: arrayUnion(currentUser.uid)
+              });
+          }
+      });
     });
 
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, selectedUser?.uid, selectedUserData?.readReceiptsEnabled]);
+  }, [chatId, currentUser.uid, selectedUser?.uid]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -379,5 +377,3 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
-
-    
