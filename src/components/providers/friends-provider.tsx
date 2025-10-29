@@ -77,14 +77,14 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     const friendshipsRef = collection(db, 'friendships');
     const friendshipsQ = query(friendshipsRef, where('users', 'array-contains', user.uid));
     const friendshipsUnsubscribe = onSnapshot(friendshipsQ, async (snapshot) => {
-      const friendshipsData = await Promise.all(snapshot.docs.map(async (doc) => {
-        const data = doc.data();
+      const friendshipsData = await Promise.all(snapshot.docs.map(async (friendshipDoc) => {
+        const data = friendshipDoc.data();
         const friendId = data.users.find((id: string) => id !== user.uid);
         const userDoc = await getDoc(doc(db, 'users', friendId));
         const friend = userDoc.data() as User;
         
         return {
-          id: doc.id,
+          id: friendshipDoc.id,
           ...data,
           friend,
         } as Friendship;
