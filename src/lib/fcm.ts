@@ -29,8 +29,13 @@ export async function requestNotificationPermission(userId: string) {
 async function getAndSaveToken(userId: string) {
     if (!messaging) return;
   try {
+    const vapidKey = process.env.NEXT_PUBLIC_FCM_VAPID_KEY;
+    if (!vapidKey) {
+        console.error('FCM VAPID key not found in environment variables.');
+        return;
+    }
     const currentToken = await getToken(messaging, {
-      vapidKey: 'BJEZik5L91-17Nl2x5y2h3R4A9H7x6I1W0h9W0g8t5k3M8y4v3u2n1o0i9l8k7j6h5g4f3d2c1b0a',
+      vapidKey: vapidKey,
       serviceWorkerRegistration: await navigator.serviceWorker.ready,
     });
     if (currentToken) {
