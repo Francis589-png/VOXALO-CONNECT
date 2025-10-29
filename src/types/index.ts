@@ -14,6 +14,9 @@ export interface Message {
   text: string;
   senderId: string;
   timestamp: Timestamp;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
 }
 
 export interface Chat {
@@ -24,7 +27,7 @@ export interface Chat {
 }
 
 export interface FriendRequest {
-  id: string;
+  id:string;
   senderId: string;
   receiverId: string;
   status: 'pending' | 'accepted' | 'declined';

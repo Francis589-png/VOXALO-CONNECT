@@ -11,8 +11,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Send } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Send, Paperclip, Mic, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState, ChangeEvent } from 'react';
 import { formatRelative } from 'date-fns';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,6 +23,9 @@ import type { Message, User } from '@/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
+import { uploadFile } from '@/lib/pinata';
+import { Progress } from '../ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 interface ChatViewProps {
   currentUser: FirebaseUser;
@@ -33,6 +36,23 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
   const date = (message.timestamp as Timestamp)?.toDate();
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
+  const renderContent = () => {
+    if (message.fileType?.startsWith('image/')) {
+      return <img src={message.fileUrl} alt="uploaded content" className="max-w-xs rounded-md" />;
+    }
+    if (message.fileType?.startsWith('audio/')) {
+      return <audio controls src={message.fileUrl} />;
+    }
+    if (message.fileUrl) {
+      return (
+        <a href={message.fileUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
+          {message.fileName || 'View File'}
+        </a>
+      );
+    }
+    return <p className="text-sm">{message.text}</p>;
+  };
+
   return (
     <div className={cn('flex items-end gap-2', isOwnMessage ? 'justify-end' : '')}>
       <div
@@ -41,7 +61,7 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
           isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card'
         )}
       >
-        <p className="text-sm">{message.text}</p>
+        {renderContent()}
         <p className={cn('text-xs mt-1', isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
           {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
         </p>
@@ -53,8 +73,15 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
 export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { friendships } = useFriends();
+  const { toast } = useToast();
 
   const canChat = selectedUser && friendships.some(f => f.friend.uid === selectedUser.uid);
 
@@ -82,8 +109,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
   useEffect(() => {
     if (scrollAreaRef.current) {
-        // A bit of a hack to scroll to bottom.
-        // Direct scrollIntoView was not working reliably with ScrollArea component
         setTimeout(() => {
             const viewport = scrollAreaRef.current?.querySelector('div[data-radix-scroll-area-viewport]');
             if (viewport) {
@@ -93,17 +118,46 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
   
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !chatId || !selectedUser) return;
+    if ((!newMessage.trim() && !audioBlob) || !chatId || !selectedUser) return;
 
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const messageData = {
-      text: newMessage,
-      senderId: currentUser.uid,
-      timestamp: serverTimestamp(),
-    };
+    let messageData: any;
+
+    if (audioBlob) {
+        setUploading(true);
+        const audioFile = new File([audioBlob], `audio-${Date.now()}.webm`, { type: 'audio/webm' });
+        const formData = new FormData();
+        formData.append('file', audioFile);
+
+        const result = await uploadFile(formData);
+
+        if ('fileUrl' in result) {
+            messageData = {
+                senderId: currentUser.uid,
+                timestamp: serverTimestamp(),
+                fileUrl: result.fileUrl,
+                fileType: result.fileType,
+                fileName: audioFile.name,
+                text: '',
+            };
+        } else {
+            toast({ title: 'Upload Failed', description: result.error, variant: 'destructive' });
+            setUploading(false);
+            return;
+        }
+        setAudioBlob(null);
+        setUploading(false);
+
+    } else {
+        messageData = {
+          text: newMessage,
+          senderId: currentUser.uid,
+          timestamp: serverTimestamp(),
+        };
+    }
+    
     await addDoc(messagesRef, messageData);
 
     const chatRef = doc(db, 'chats', chatId);
@@ -113,11 +167,94 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         { uid: currentUser.uid, displayName: currentUser.displayName, email: currentUser.email, photoURL: currentUser.photoURL },
         { uid: selectedUser.uid, displayName: selectedUser.displayName, email: selectedUser.email, photoURL: selectedUser.photoURL },
       ],
-      lastMessage: messageData,
+      lastMessage: {
+        text: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+        senderId: messageData.senderId,
+        timestamp: messageData.timestamp
+      },
     }, { merge: true });
 
     setNewMessage('');
   };
+
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatId || !selectedUser) return;
+
+    setUploading(true);
+    setUploadProgress(0);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Simulate progress for UX
+    const progressInterval = setInterval(() => {
+        setUploadProgress(prev => (prev < 90 ? prev + 10 : prev));
+    }, 200);
+
+    const result = await uploadFile(formData);
+
+    clearInterval(progressInterval);
+    setUploadProgress(100);
+
+    if ('fileUrl' in result) {
+        const messageData = {
+            senderId: currentUser.uid,
+            timestamp: serverTimestamp(),
+            fileUrl: result.fileUrl,
+            fileType: result.fileType,
+            fileName: file.name,
+            text: '',
+        };
+        const messagesRef = collection(db, 'chats', chatId, 'messages');
+        await addDoc(messagesRef, messageData);
+
+        const chatRef = doc(db, 'chats', chatId);
+        await setDoc(chatRef, {
+            users: [currentUser.uid, selectedUser.uid],
+            userInfos: [
+              { uid: currentUser.uid, displayName: currentUser.displayName, email: currentUser.email, photoURL: currentUser.photoURL },
+              { uid: selectedUser.uid, displayName: selectedUser.displayName, email: selectedUser.email, photoURL: selectedUser.photoURL },
+            ],
+            lastMessage: {
+                text: `Sent a ${result.fileType.split('/')[0] || 'file'}.`,
+                senderId: messageData.senderId,
+                timestamp: messageData.timestamp
+            },
+        }, { merge: true });
+    } else {
+        toast({ title: 'Upload Failed', description: result.error, variant: 'destructive' });
+    }
+
+    setUploading(false);
+    setUploadProgress(0);
+    if(fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        const chunks: Blob[] = [];
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.onstop = () => {
+          const audioBlob = new Blob(chunks, { type: 'audio/webm' });
+          setAudioBlob(audioBlob);
+          stream.getTracks().forEach(track => track.stop());
+        };
+        mediaRecorder.start();
+        setIsRecording(true);
+      } catch (error) {
+        toast({ title: 'Audio Error', description: 'Could not start recording. Please check microphone permissions.', variant: 'destructive' });
+      }
+    }
+  };
+
 
   if (!selectedUser) {
     return (
@@ -153,17 +290,34 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                         ))}
                     </div>
                 </ScrollArea>
+                {uploading && <Progress value={uploadProgress} className="h-1 w-full" />}
                 <div className="border-t p-4">
+                    {audioBlob && (
+                        <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted">
+                            <audio src={URL.createObjectURL(audioBlob)} controls className="flex-1" />
+                            <Button variant="ghost" size="icon" onClick={() => setAudioBlob(null)}>
+                                <Trash2 className="h-5 w-5 text-destructive" />
+                            </Button>
+                        </div>
+                    )}
                     <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                    <Input
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        autoComplete="off"
-                    />
-                    <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-                        <Send className="h-5 w-5" />
-                    </Button>
+                        <Input
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            placeholder={isRecording ? "Recording..." : "Type a message..."}
+                            autoComplete="off"
+                            disabled={isRecording || !!audioBlob}
+                        />
+                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                        <Button type="button" size="icon" variant="ghost" onClick={() => fileInputRef.current?.click()} disabled={isRecording || !!audioBlob}>
+                            <Paperclip className="h-5 w-5" />
+                        </Button>
+                        <Button type="button" size="icon" variant={isRecording ? "destructive" : "ghost"} onClick={handleMicClick} disabled={!!audioBlob}>
+                            <Mic className="h-5 w-5" />
+                        </Button>
+                        <Button type="submit" size="icon" disabled={(!newMessage.trim() && !audioBlob) || uploading}>
+                            <Send className="h-5 w-5" />
+                        </Button>
                     </form>
                 </div>
             </>
