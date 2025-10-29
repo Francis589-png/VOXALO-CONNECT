@@ -12,8 +12,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/
 import { Input } from '../ui/input';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import FriendsTab from './friends-tab';
 import ContactsList from './contacts-list';
+import ExplorePage from './explore-page';
 
 export default function ChatLayout() {
   const { user } = useAuth();
@@ -67,8 +67,8 @@ export default function ChatLayout() {
             <TabsTrigger value="contacts" className="w-full">
               Contacts
             </TabsTrigger>
-            <TabsTrigger value="friends" className="w-full">
-              Friends
+            <TabsTrigger value="explore" className="w-full">
+              Explore
             </TabsTrigger>
           </TabsList>
           <div className="p-4 pt-0">
@@ -90,8 +90,8 @@ export default function ChatLayout() {
               onSelectUser={handleSelectUser}
             />
           </TabsContent>
-          <TabsContent value="friends" className="flex-1 overflow-y-auto mt-0">
-            <FriendsTab search={search} />
+          <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
+            <ExplorePage search={search} />
           </TabsContent>
         </Tabs>
       </div>
