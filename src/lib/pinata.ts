@@ -3,10 +3,9 @@ import axios from 'axios';
 import { Readable } from 'stream';
 
 const PINATA_GATEWAY_URL = process.env.PINATA_GATEWAY_URL;
-const PINATA_API_KEY = process.env.PINATA_API_KEY;
-const PINATA_SECRET_API_KEY = process.env.PINATA_SECRET_API_KEY;
+const PINATA_JWT = process.env.PINATA_JWT;
 
-if (!PINATA_GATEWAY_URL || !PINATA_API_KEY || !PINATA_SECRET_API_KEY) {
+if (!PINATA_GATEWAY_URL || !PINATA_JWT) {
   if (process.env.NODE_ENV !== 'development') {
     console.warn(
       'Pinata environment variables are not set. File uploads will not work.'
@@ -18,7 +17,7 @@ async function uploadToPinata(
   fileStream: Readable,
   fileName: string
 ): Promise<string> {
-  if (!PINATA_GATEWAY_URL || !PINATA_API_KEY || !PINATA_SECRET_API_KEY) {
+  if (!PINATA_GATEWAY_URL || !PINATA_JWT) {
     throw new Error(
       'Pinata environment variables are not set up correctly on the server.'
     );
@@ -33,8 +32,7 @@ async function uploadToPinata(
     {
       headers: {
         'Content-Type': `multipart/form-data;`,
-        pinata_api_key: PINATA_API_KEY,
-        pinata_secret_api_key: PINATA_SECRET_API_KEY,
+        Authorization: `Bearer ${PINATA_JWT}`,
       },
     }
   );
