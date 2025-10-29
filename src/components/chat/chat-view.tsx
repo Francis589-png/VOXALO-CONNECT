@@ -347,7 +347,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       setMessages(prev => [...prev, thinkingMessage]);
   
       try {
-        const history = updatedMessages
+        const historyForAI = updatedMessages
             .filter(m => m.id !== thinkingMessage.id)
             .map(msg => ({
                 role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
@@ -355,7 +355,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             }));
 
         const { response } = await aiChatFlow({ 
-            history: history.slice(0, -1), // Send history up to the last user message
+            history: historyForAI,
             message: messageText,
         });
 
