@@ -2,7 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { updateProfile } from 'firebase/auth';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -46,9 +46,7 @@ export default function ProfilePage() {
     if (user) {
       form.setValue('displayName', user.displayName || '');
       
-      // Fetch user data from firestore to get readReceiptsEnabled
       const userDocRef = doc(db, 'users', user.uid);
-      const { getDoc } = require('firebase/firestore');
       getDoc(userDocRef).then((docSnap) => {
         if (docSnap.exists()) {
           const userData = docSnap.data();
