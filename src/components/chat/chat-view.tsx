@@ -26,6 +26,7 @@ import { useFriends } from '../providers/friends-provider';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import { useToast } from '@/hooks/use-toast';
+import { sendNotification } from '@/lib/fcm';
 
 interface ChatViewProps {
   currentUser: FirebaseUser;
@@ -118,11 +119,37 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
   
+  const sendMessage = async (messageData: any) => {
+    if (!chatId || !selectedUser) return;
+    const messagesRef = collection(db, 'chats', chatId, 'messages');
+    await addDoc(messagesRef, messageData);
+
+    const chatRef = doc(db, 'chats', chatId);
+    await setDoc(chatRef, {
+      users: [currentUser.uid, selectedUser.uid],
+      userInfos: [
+        { uid: currentUser.uid, displayName: currentUser.displayName, email: currentUser.email, photoURL: currentUser.photoURL },
+        { uid: selectedUser.uid, displayName: selectedUser.displayName, email: selectedUser.email, photoURL: selectedUser.photoURL },
+      ],
+      lastMessage: {
+        text: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+        senderId: messageData.senderId,
+        timestamp: messageData.timestamp
+      },
+    }, { merge: true });
+
+    await sendNotification(selectedUser, messageData, {
+      uid: currentUser.uid,
+      displayName: currentUser.displayName,
+      email: currentUser.email,
+      photoURL: currentUser.photoURL,
+    });
+  }
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if ((!newMessage.trim() && !audioBlob) || !chatId || !selectedUser) return;
 
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
     let messageData: any;
 
     if (audioBlob) {
@@ -158,22 +185,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         };
     }
     
-    await addDoc(messagesRef, messageData);
-
-    const chatRef = doc(db, 'chats', chatId);
-    await setDoc(chatRef, {
-      users: [currentUser.uid, selectedUser.uid],
-      userInfos: [
-        { uid: currentUser.uid, displayName: currentUser.displayName, email: currentUser.email, photoURL: currentUser.photoURL },
-        { uid: selectedUser.uid, displayName: selectedUser.displayName, email: selectedUser.email, photoURL: selectedUser.photoURL },
-      ],
-      lastMessage: {
-        text: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
-        senderId: messageData.senderId,
-        timestamp: messageData.timestamp
-      },
-    }, { merge: true });
-
+    await sendMessage(messageData);
     setNewMessage('');
   };
 
@@ -206,22 +218,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             fileName: file.name,
             text: '',
         };
-        const messagesRef = collection(db, 'chats', chatId, 'messages');
-        await addDoc(messagesRef, messageData);
-
-        const chatRef = doc(db, 'chats', chatId);
-        await setDoc(chatRef, {
-            users: [currentUser.uid, selectedUser.uid],
-            userInfos: [
-              { uid: currentUser.uid, displayName: currentUser.displayName, email: currentUser.email, photoURL: currentUser.photoURL },
-              { uid: selectedUser.uid, displayName: selectedUser.displayName, email: selectedUser.email, photoURL: selectedUser.photoURL },
-            ],
-            lastMessage: {
-                text: `Sent a ${result.fileType.split('/')[0] || 'file'}.`,
-                senderId: messageData.senderId,
-                timestamp: messageData.timestamp
-            },
-        }, { merge: true });
+        await sendMessage(messageData);
     } else {
         toast({ title: 'Upload Failed', description: result.error, variant: 'destructive' });
     }
