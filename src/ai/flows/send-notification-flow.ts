@@ -8,9 +8,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import dotenv from 'dotenv';
-
-dotenv.config({ path: '.env.local' });
 
 const SendNotificationInputSchema = z.object({
   recipientToken: z.string().describe('The FCM token of the recipient device.'),
