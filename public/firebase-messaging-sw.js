@@ -1,53 +1,39 @@
+self.addEventListener('push', function(event) {
+    if (event.data) {
+        const payload = event.data.json();
+        const title = payload.notification.title;
+        const options = {
+            body: payload.notification.body,
+            icon: payload.notification.icon || '/icon-192x192.png',
+            badge: payload.notification.badge || '/badge-72x72.png',
+            sound: '/notification.mp3', // Path to your sound file
+            data: {
+                click_action: payload.notification.click_action
+            }
+        };
 
-// Give the service worker access to Firebase Messaging.
-// Note that you can only use Firebase Messaging here, other Firebase libraries
-// are not available in the service worker.
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/10.9.0/firebase-messaging-compat.js');
-
-const firebaseConfig = {
-    apiKey: "AIzaSyD5A3eoJms-tQIttDDHZKIsUTp2elSL3BY",
-    authDomain: "voxalo-x.firebaseapp.com",
-    databaseURL: "https://voxalo-x-default-rtdb.firebaseio.com",
-    projectId: "voxalo-x",
-    storageBucket: "voxalo-x.appspot.com",
-    messagingSenderId: "218806636116",
-    appId: "1:218806636116:web:2ec151f5500021b38067c1"
-};
-
-firebase.initializeApp(firebaseConfig);
-
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: payload.notification.icon,
-    sound: payload.notification.sound || '/notification.mp3', 
-    data: payload.data,
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+        event.waitUntil(self.registration.showNotification(title, options));
+    }
 });
 
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', function(event) {
     event.notification.close();
-    const targetUrl = event.notification.data.url || '/';
+    const targetUrl = event.notification.data.click_action || '/';
+
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            if (clientList.length > 0) {
-                let client = clientList[0];
-                for (let i = 0; i < clientList.length; i++) {
-                    if (clientList[i].focused) {
-                        client = clientList[i];
-                    }
+        clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then(function(clientList) {
+            for (var i = 0; i < clientList.length; i++) {
+                var client = clientList[i];
+                if (client.url == targetUrl && 'focus' in client) {
+                    return client.focus();
                 }
-                return client.focus().then(client => client.navigate(targetUrl));
             }
-            return clients.openWindow(targetUrl);
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
         })
     );
 });
