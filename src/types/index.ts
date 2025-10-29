@@ -8,6 +8,7 @@ export interface User {
   photoURL: string | null;
   lastSeen?: Timestamp;
   fcmToken?: string;
+  readReceiptsEnabled?: boolean;
 }
 
 export interface Message {
@@ -18,6 +19,7 @@ export interface Message {
   fileUrl?: string;
   fileType?: string;
   fileName?: string;
+  readBy?: string[];
 }
 
 export interface Chat {

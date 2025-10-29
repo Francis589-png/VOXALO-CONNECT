@@ -10,9 +10,12 @@ import {
   serverTimestamp,
   setDoc,
   Timestamp,
+  updateDoc,
+  arrayUnion,
+  getDoc
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { Send, Paperclip, Mic, Trash2 } from 'lucide-react';
+import { Send, Paperclip, Mic, Trash2, Check, CheckCheck } from 'lucide-react';
 import { useEffect, useRef, useState, ChangeEvent } from 'react';
 import { formatRelative } from 'date-fns';
 
@@ -34,7 +37,17 @@ interface ChatViewProps {
   selectedUser: User | null;
 }
 
-function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessage: boolean }) {
+function ReadReceipt({ message, isOwnMessage, recipientHasRead }: { message: Message; isOwnMessage: boolean; recipientHasRead: boolean; }) {
+    if (!isOwnMessage) return null;
+
+    if (recipientHasRead) {
+        return <CheckCheck className="h-4 w-4 text-blue-500" />;
+    }
+    
+    return <Check className="h-4 w-4 text-muted-foreground" />;
+}
+
+function MessageBubble({ message, isOwnMessage, recipientHasRead }: { message: Message; isOwnMessage: boolean, recipientHasRead: boolean; }) {
   const date = (message.timestamp as Timestamp)?.toDate();
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
@@ -64,9 +77,10 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
         )}
       >
         {renderContent()}
-        <p className={cn('text-xs mt-1', isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
-          {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
-        </p>
+        <div className={cn('flex items-center gap-2 text-xs mt-1', isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
+            <span>{formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}</span>
+            <ReadReceipt message={message} isOwnMessage={isOwnMessage} recipientHasRead={recipientHasRead} />
+        </div>
       </div>
     </div>
   );
@@ -84,6 +98,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { friendships } = useFriends();
   const { toast } = useToast();
+  const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
 
   const canChat = selectedUser && friendships.some(f => f.friend.uid === selectedUser.uid);
 
@@ -92,6 +107,18 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       ? [currentUser.uid, selectedUser.uid].sort().join('_')
       : null;
 
+  useEffect(() => {
+    if (selectedUser) {
+        const userDocRef = doc(db, 'users', selectedUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setSelectedUserData(docSnap.data() as User);
+            }
+        });
+        return () => unsubscribe();
+    }
+  }, [selectedUser]);
+  
   useEffect(() => {
     if (!chatId) return;
 
@@ -104,10 +131,22 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         ...doc.data(),
       })) as Message[];
       setMessages(messagesData);
+
+      // Mark messages as read
+      if (selectedUserData?.readReceiptsEnabled !== false) { // check if enabled, default to true
+        messagesData.forEach(message => {
+            if (message.senderId === selectedUser?.uid && !message.readBy?.includes(currentUser.uid)) {
+                const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+                updateDoc(messageRef, {
+                    readBy: arrayUnion(currentUser.uid)
+                });
+            }
+        });
+      }
     });
 
     return () => unsubscribe();
-  }, [chatId]);
+  }, [chatId, currentUser.uid, selectedUser?.uid, selectedUserData?.readReceiptsEnabled]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -169,6 +208,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 fileType: result.fileType,
                 fileName: audioFile.name,
                 text: '',
+                readBy: [],
             };
         } else {
             toast({ title: 'Upload Failed', description: result.error, variant: 'destructive' });
@@ -183,6 +223,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
           text: newMessage,
           senderId: currentUser.uid,
           timestamp: serverTimestamp(),
+          readBy: [],
         };
     }
     
@@ -218,6 +259,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             fileType: result.fileType,
             fileName: file.name,
             text: '',
+            readBy: [],
         };
         await sendMessage(messageData);
     } else {
@@ -279,13 +321,18 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             <>
                 <ScrollArea className="flex-1" ref={scrollAreaRef}>
                     <div className="p-6 space-y-4">
-                        {messages.map((message) => (
-                            <MessageBubble
-                            key={message.id}
-                            message={message}
-                            isOwnMessage={message.senderId === currentUser.uid}
-                            />
-                        ))}
+                        {messages.map((message) => {
+                            const isOwnMessage = message.senderId === currentUser.uid;
+                            const recipientHasRead = selectedUserData?.readReceiptsEnabled !== false && !!message.readBy?.includes(selectedUser.uid);
+                            return (
+                                <MessageBubble
+                                key={message.id}
+                                message={message}
+                                isOwnMessage={isOwnMessage}
+                                recipientHasRead={recipientHasRead}
+                                />
+                            )
+                        })}
                     </div>
                 </ScrollArea>
                 {uploading && <Progress value={uploadProgress} className="h-1 w-full" />}

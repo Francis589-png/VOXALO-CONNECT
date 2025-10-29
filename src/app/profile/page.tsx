@@ -19,9 +19,12 @@ import { auth, db } from '@/lib/firebase';
 import ProfilePictureUploader from '@/components/profile-picture-uploader';
 import { uploadFile } from '@/lib/pinata';
 import { useAuth } from '@/hooks/use-auth';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  readReceiptsEnabled: z.boolean(),
 });
 
 export default function ProfilePage() {
@@ -35,12 +38,27 @@ export default function ProfilePage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       displayName: '',
+      readReceiptsEnabled: true,
     },
   });
 
   useEffect(() => {
     if (user) {
       form.setValue('displayName', user.displayName || '');
+      
+      // Fetch user data from firestore to get readReceiptsEnabled
+      const userDocRef = doc(db, 'users', user.uid);
+      const { getDoc } = require('firebase/firestore');
+      getDoc(userDocRef).then((docSnap) => {
+        if (docSnap.exists()) {
+          const userData = docSnap.data();
+          if (userData && typeof userData.readReceiptsEnabled === 'boolean') {
+            form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled);
+          } else {
+            form.setValue('readReceiptsEnabled', true); // Default to true if not set
+          }
+        }
+      });
     }
   }, [user, form]);
 
@@ -77,6 +95,7 @@ export default function ProfilePage() {
       await updateDoc(userDocRef, {
         displayName: values.displayName,
         photoURL,
+        readReceiptsEnabled: values.readReceiptsEnabled,
       });
 
       toast({
@@ -116,8 +135,8 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent>
                 <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    <div className='flex justify-center pb-4'>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className='flex justify-center'>
                         <ProfilePictureUploader 
                             onPictureChange={setProfilePicture}
                             initialImageUrl={user.photoURL}
@@ -143,6 +162,27 @@ export default function ProfilePage() {
                         </FormControl>
                         <FormMessage />
                     </FormItem>
+
+                    <FormField
+                        control={form.control}
+                        name="readReceiptsEnabled"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Read Receipts</FormLabel>
+                                    <FormDescription>
+                                        Allow others to see when you've read their messages.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
 
                     <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Saving...' : 'Save Changes'}
