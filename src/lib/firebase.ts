@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getMessaging } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: "AIzaSyD5A3eoJms-tQIttDDHZKIsUTp2elSL3BY",
@@ -16,4 +17,7 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-export { app, auth, db };
+// Check if we are in a browser environment before initializing messaging
+const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+
+export { app, auth, db, messaging };

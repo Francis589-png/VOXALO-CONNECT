@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useEffect, useState } from 'react';
 import { auth } from '@/lib/firebase';
 import Loading from '@/app/loading';
+import { requestNotificationPermission } from '@/lib/fcm';
 
 type AuthContextType = {
   user: User | null;
@@ -25,6 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      if (user) {
+        requestNotificationPermission(user.uid);
+      }
       setLoading(false);
     });
 

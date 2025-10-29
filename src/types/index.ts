@@ -7,6 +7,7 @@ export interface User {
   email: string | null;
   photoURL: string | null;
   lastSeen?: Timestamp;
+  fcmToken?: string;
 }
 
 export interface Message {
