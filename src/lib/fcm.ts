@@ -67,7 +67,7 @@ export async function sendNotification(recipient: User, message: Partial<Message
     const notificationPayload = {
         to: recipient.fcmToken,
         notification: {
-            title: sender.displayName || 'New Message',
+            title: `Message from ${sender.displayName || 'a friend'}`,
             body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
             icon: sender.photoURL || '/icon.png',
             click_action: `${window.location.origin}`
@@ -97,3 +97,5 @@ export async function sendNotification(recipient: User, message: Partial<Message
         console.error('Error sending notification:', error);
     }
 }
+
+    
