@@ -5,7 +5,6 @@ import { messaging, db } from './firebase';
 import { User, Message } from '@/types';
 import { sendNotificationFlow } from '@/ai/flows/send-notification-flow';
 
-
 export async function requestNotificationPermission(userId: string) {
   if (!messaging || typeof window === 'undefined' || !('Notification' in window) || !navigator.serviceWorker) {
     console.log('This browser does not support desktop notification');
