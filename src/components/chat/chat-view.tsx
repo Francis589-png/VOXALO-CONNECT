@@ -334,8 +334,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         senderId: currentUser.uid,
         timestamp: Timestamp.now(),
       };
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      setMessages(prev => [...prev, userMessage]);
       setNewMessage('');
   
       const thinkingMessage: Message = {
@@ -347,8 +346,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       setMessages(prev => [...prev, thinkingMessage]);
   
       try {
-        const historyForAI = updatedMessages
-            .filter(m => m.id !== thinkingMessage.id)
+        const historyForAI = [...messages, userMessage]
             .map(msg => ({
                 role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
                 content: msg.text,
@@ -356,7 +354,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
         const { response } = await aiChatFlow({ 
             history: historyForAI,
-            message: messageText,
+            message: messageText, // message is used by the history
         });
 
         const aiMessage: Message = {
