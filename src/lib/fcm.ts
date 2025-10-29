@@ -3,6 +3,8 @@ import { getToken } from 'firebase/messaging';
 import { doc, updateDoc } from 'firebase/firestore';
 import { messaging, db } from './firebase';
 import { User, Message } from '@/types';
+import { sendNotificationFlow } from '@/ai/flows/send-notification-flow';
+
 
 export async function requestNotificationPermission(userId: string) {
   if (!messaging || typeof window === 'undefined' || !('Notification' in window) || !navigator.serviceWorker) {
@@ -58,19 +60,14 @@ export async function sendNotification(recipient: User, message: Partial<Message
         return;
     }
 
-    const serverKey = process.env.NEXT_PUBLIC_FCM_SERVER_KEY;
-    
-    if (!serverKey) {
-        console.warn('FCM Server Key is not set in .env.local. Notifications will not be sent.');
-        return;
+    try {
+        await sendNotificationFlow({
+            recipientToken: recipient.fcmToken,
+            title: sender.displayName || 'New Message',
+            body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
+        });
+        console.log('Notification sent successfully via server flow.');
+    } catch (error) {
+        console.error('Failed to send notification via server flow:', error);
     }
-    
-    console.log("Attempting to send notification. In a real app, this would be a server-side call.");
-    console.log("Recipient:", recipient.displayName, "Token:", recipient.fcmToken);
-    console.log("Sender:", sender.displayName);
-    console.log("Message:", message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`);
-
-    // The client-side fetch call is removed to prevent CORS errors.
-    // A proper implementation requires a backend function (e.g., Cloud Function)
-    // to securely make this API call.
 }
