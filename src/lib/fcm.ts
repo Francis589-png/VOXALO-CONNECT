@@ -1,6 +1,6 @@
 'use client';
 import { getToken } from 'firebase/messaging';
-import { doc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { messaging, db } from './firebase';
 import { User, Message } from '@/types';
 
@@ -61,42 +61,16 @@ export async function sendNotification(recipient: User, message: Partial<Message
     const serverKey = process.env.NEXT_PUBLIC_FCM_SERVER_KEY;
     
     if (!serverKey) {
-        console.warn('FCM Server Key is not set in .env.local. Notifications will not be sent. Please get it from your Firebase project settings.');
+        console.warn('FCM Server Key is not set in .env.local. Notifications will not be sent.');
         return;
     }
-
-    const notificationPayload = {
-        to: recipient.fcmToken,
-        notification: {
-            title: `Message from ${sender.displayName || 'a friend'}`,
-            body: message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`,
-            icon: sender.photoURL || '/icon.png',
-            click_action: `${window.location.origin}`,
-            sound: '/notification.mp3'
-        },
-        data: {
-            chatId: [sender.uid, recipient.uid].sort().join('_'),
-            senderId: sender.uid,
-        }
-    };
     
-    try {
-        const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `key=${serverKey}`
-            },
-            body: JSON.stringify(notificationPayload)
-        });
+    console.log("Attempting to send notification. In a real app, this would be a server-side call.");
+    console.log("Recipient:", recipient.displayName, "Token:", recipient.fcmToken);
+    console.log("Sender:", sender.displayName);
+    console.log("Message:", message.text || `Sent a ${message.fileType?.split('/')[0] || 'file'}.`);
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('Error sending notification:', errorData);
-        } else {
-            console.log('Notification sent successfully');
-        }
-    } catch(error) {
-        console.error('Error sending notification:', error);
-    }
+    // The client-side fetch call is removed to prevent CORS errors.
+    // A proper implementation requires a backend function (e.g., Cloud Function)
+    // to securely make this API call.
 }
