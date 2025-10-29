@@ -58,12 +58,10 @@ export async function sendNotification(recipient: User, message: Partial<Message
         return;
     }
 
-    // IMPORTANT: This key should be stored securely and not exposed on the client side in a real production app.
-    // For production, use a server-side function (e.g., Firebase Cloud Function) to send notifications.
-    const serverKey = ''; // TODO: Replace with your actual FCM server key from the Firebase console.
+    const serverKey = process.env.NEXT_PUBLIC_FCM_SERVER_KEY;
     
     if (!serverKey) {
-        console.warn('FCM Server Key is not set in src/lib/fcm.ts. Notifications will not be sent. Please get it from your Firebase project settings.');
+        console.warn('FCM Server Key is not set in .env.local. Notifications will not be sent. Please get it from your Firebase project settings.');
         return;
     }
 
