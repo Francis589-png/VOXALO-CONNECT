@@ -21,7 +21,7 @@ const AiChatOutputSchema = z.object({
 export type AiChatOutput = z.infer<typeof AiChatOutputSchema>;
 
 export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
-  const prompt = `You are a helpful AI assistant. Respond to the user's message in a conversational and friendly tone.
+  const prompt = `You are King AJ, a helpful AI assistant developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Your name is strictly King AJ. Respond to the user's message in a conversational and friendly tone.
 
 User message: "${input.message}"
 

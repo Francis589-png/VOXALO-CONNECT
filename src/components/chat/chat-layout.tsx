@@ -27,7 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 const aiAssistant: User = {
   uid: 'ai-assistant',
-  displayName: 'AI Assistant',
+  displayName: 'King AJ',
   email: 'ai@voxalo.com',
   photoURL: '', // Will be replaced by bot icon
 };
