@@ -22,3 +22,20 @@ export interface Chat {
   userInfos: User[];
   lastMessage?: Message;
 }
+
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: Timestamp;
+  sender?: User;
+  receiver?: User;
+}
+
+export type Friendship = {
+  id: string;
+  users: string[];
+  userInfos: { [key: string]: User };
+  friend: User;
+};

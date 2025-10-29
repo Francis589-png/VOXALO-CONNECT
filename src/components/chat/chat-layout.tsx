@@ -1,24 +1,19 @@
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { LogOut, Search } from 'lucide-react';
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
-
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/use-auth';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/types';
 import ChatView from './chat-view';
 import { Icons } from '../icons';
+import { Button } from '../ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
+import { Input } from '../ui/input';
+import { Separator } from '../ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import FriendsTab from './friends-tab';
+import ContactsList from './contacts-list';
 
 export default function ChatLayout() {
   const { user } = useAuth();
@@ -28,15 +23,12 @@ export default function ChatLayout() {
 
   useEffect(() => {
     if (!user) return;
-
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('uid', '!=', user.uid));
-
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const usersData = snapshot.docs.map((doc) => doc.data() as User);
       setUsers(usersData);
     });
-
     return () => unsubscribe();
   }, [user]);
 
@@ -69,42 +61,39 @@ export default function ChatLayout() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        <div className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search contacts..."
-              className="pl-9"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+
+        <Tabs defaultValue="contacts" className="flex flex-col flex-1">
+          <TabsList className="m-4">
+            <TabsTrigger value="contacts" className="w-full">
+              Contacts
+            </TabsTrigger>
+            <TabsTrigger value="friends" className="w-full">
+              Friends
+            </TabsTrigger>
+          </TabsList>
+          <div className="p-4 pt-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search..."
+                className="pl-9"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <Separator />
+          <TabsContent value="contacts" className="flex-1 overflow-y-auto mt-0">
+            <ContactsList
+              users={filteredUsers}
+              selectedUser={selectedUser}
+              onSelectUser={handleSelectUser}
             />
-          </div>
-        </div>
-        <Separator />
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex flex-col">
-            {filteredUsers.map((contact) => (
-              <button
-                key={contact.uid}
-                onClick={() => handleSelectUser(contact)}
-                className={`flex items-center gap-3 p-4 text-left hover:bg-muted/50 ${
-                  selectedUser?.uid === contact.uid ? 'bg-muted' : ''
-                }`}
-              >
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
-                  <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <p className="font-semibold">{contact.displayName}</p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {contact.email}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
+          </TabsContent>
+          <TabsContent value="friends" className="flex-1 overflow-y-auto mt-0">
+            <FriendsTab search={search} />
+          </TabsContent>
+        </Tabs>
       </div>
       <div className="hidden flex-1 md:flex">
         <ChatView currentUser={user!} selectedUser={selectedUser} />

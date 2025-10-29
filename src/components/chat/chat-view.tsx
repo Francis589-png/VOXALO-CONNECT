@@ -12,7 +12,6 @@ import {
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Send } from 'lucide-react';
-import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { formatRelative } from 'date-fns';
 
@@ -23,6 +22,7 @@ import { db } from '@/lib/firebase';
 import type { Message, User } from '@/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
+import { useFriends } from '../providers/friends-provider';
 
 interface ChatViewProps {
   currentUser: FirebaseUser;
@@ -54,6 +54,9 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { friendships } = useFriends();
+
+  const canChat = selectedUser && friendships.some(f => f.friend.uid === selectedUser.uid);
 
   const chatId =
     currentUser && selectedUser
@@ -137,30 +140,41 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         </Avatar>
         <h2 className="text-lg font-semibold">{selectedUser.displayName}</h2>
       </div>
-      <ScrollArea className="flex-1" ref={scrollAreaRef}>
-        <div className="p-6 space-y-4">
-            {messages.map((message) => (
-                <MessageBubble
-                key={message.id}
-                message={message}
-                isOwnMessage={message.senderId === currentUser.uid}
-                />
-            ))}
-        </div>
-      </ScrollArea>
-      <div className="border-t p-4">
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            autoComplete="off"
-          />
-          <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-            <Send className="h-5 w-5" />
-          </Button>
-        </form>
-      </div>
+        {canChat ? (
+            <>
+                <ScrollArea className="flex-1" ref={scrollAreaRef}>
+                    <div className="p-6 space-y-4">
+                        {messages.map((message) => (
+                            <MessageBubble
+                            key={message.id}
+                            message={message}
+                            isOwnMessage={message.senderId === currentUser.uid}
+                            />
+                        ))}
+                    </div>
+                </ScrollArea>
+                <div className="border-t p-4">
+                    <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                    <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type a message..."
+                        autoComplete="off"
+                    />
+                    <Button type="submit" size="icon" disabled={!newMessage.trim()}>
+                        <Send className="h-5 w-5" />
+                    </Button>
+                    </form>
+                </div>
+            </>
+        ) : (
+            <div className="flex h-full flex-col items-center justify-center bg-card/50">
+                <div className="text-center">
+                    <p className="text-muted-foreground">You are not friends with this user yet.</p>
+                    <p className="text-muted-foreground">Accept their friend request to start chatting.</p>
+                </div>
+            </div>
+        )}
     </div>
   );
 }
