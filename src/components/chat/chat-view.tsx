@@ -26,6 +26,8 @@ import {
   MoreHorizontal,
   Trash,
   Smile,
+  Mic,
+  StopCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatRelative } from 'date-fns';
@@ -46,6 +48,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { uploadFile } from '@/lib/pinata';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -95,6 +98,11 @@ function MessageBubble({
     : '';
 
   const renderContent = () => {
+    if (message.type === 'audio' && message.audioURL) {
+      return (
+        <audio controls src={message.audioURL} className="w-64" />
+      );
+    }
     return <p className="text-sm break-words">{message.text}</p>;
   };
 
@@ -199,7 +207,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const { friendships } = useFriends();
   const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
-
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const canChat =
     selectedUser &&
@@ -283,21 +294,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       }, 100);
     }
   }, [messages, selectedUser]);
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim()) return;
+  
+  const addMessageToChat = async (messageData: Omit<Message, 'id'>) => {
     if (!chatId || !selectedUser) return;
-
-    const messageData: Omit<Message, 'id'> = {
-        text: newMessage,
-        senderId: currentUser.uid,
-        timestamp: serverTimestamp(),
-        readBy: [],
-        deletedFor: [],
-    };
     
-    setNewMessage('');
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
     
@@ -321,7 +321,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
           },
         ],
         lastMessage: {
-          text: messageData.text,
+          text: messageData.type === 'audio' ? 'Audio message' : messageData.text,
           senderId: messageData.senderId,
           timestamp: serverTimestamp(),
         },
@@ -329,6 +329,77 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       { merge: true }
     );
   };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+
+    const messageData: Omit<Message, 'id'> = {
+        type: 'text',
+        text: newMessage,
+        senderId: currentUser.uid,
+        timestamp: serverTimestamp(),
+        readBy: [],
+        deletedFor: [],
+    };
+    
+    setNewMessage('');
+    await addMessageToChat(messageData);
+  };
+
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = mediaRecorder;
+        
+        const audioChunks: BlobPart[] = [];
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstart = () => {
+            setIsRecording(true);
+            setRecordingTime(0);
+            recordingIntervalRef.current = setInterval(() => {
+                setRecordingTime(prevTime => prevTime + 1);
+            }, 1000);
+        };
+
+        mediaRecorder.onstop = async () => {
+            if (recordingIntervalRef.current) {
+                clearInterval(recordingIntervalRef.current);
+            }
+            setIsRecording(false);
+            setRecordingTime(0);
+            stream.getTracks().forEach(track => track.stop());
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+            
+            const audioURL = await uploadFile(audioFile);
+
+            const messageData: Omit<Message, 'id'> = {
+                type: 'audio',
+                audioURL,
+                senderId: currentUser.uid,
+                timestamp: serverTimestamp(),
+                readBy: [],
+                deletedFor: [],
+            };
+            await addMessageToChat(messageData);
+        };
+        
+        mediaRecorder.start();
+      } catch (error) {
+        console.error("Error accessing microphone:", error);
+      }
+    }
+  };
+
 
   const handleDeleteForMe = async (messageId: string) => {
     if (!chatId) return;
@@ -440,25 +511,41 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
-            <form
-              onSubmit={handleSendMessage}
-              className="flex items-center gap-2"
-            >
-              <Input
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder={'Type a message...'}
-                autoComplete="off"
-              />
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!newMessage.trim()}
-              >
-                <Send className="h-5 w-5" />
-              </Button>
-            </form>
-          </div>
+            {isRecording ? (
+                <div className="flex items-center gap-2">
+                    <Button onClick={handleToggleRecording} size="icon" variant="destructive">
+                        <StopCircle className="h-5 w-5" />
+                    </Button>
+                    <div className="flex-1 text-center text-muted-foreground">
+                        Recording... ({Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')})
+                    </div>
+                </div>
+            ) : (
+                <form
+                    onSubmit={handleSendMessage}
+                    className="flex items-center gap-2"
+                >
+                    <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder={'Type a message...'}
+                        autoComplete="off"
+                    />
+                    {newMessage.trim() ? (
+                        <Button
+                            type="submit"
+                            size="icon"
+                        >
+                            <Send className="h-5 w-5" />
+                        </Button>
+                    ) : (
+                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost">
+                            <Mic className="h-5 w-5" />
+                        </Button>
+                    )}
+                </form>
+            )}
+            </div>
         </>
       ) : (
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
@@ -479,3 +566,5 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
+
+    

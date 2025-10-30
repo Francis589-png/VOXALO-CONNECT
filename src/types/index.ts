@@ -16,12 +16,14 @@ export interface User {
 
 export interface Message {
   id: string;
-  text: string;
+  text?: string;
   senderId: string;
   timestamp: Timestamp | Date; // Allow Date for local AI messages
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
+  type: 'text' | 'audio';
+  audioURL?: string;
 }
 
 export interface Chat {
@@ -47,3 +49,5 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
+
+    
