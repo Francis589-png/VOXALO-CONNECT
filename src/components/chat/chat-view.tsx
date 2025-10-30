@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { sendNotificationFlow } from '@/ai/flows/send-notification-flow';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -247,6 +248,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       : null;
 
     useEffect(() => {
+        if (!currentUser?.uid) return;
         const userDocRef = doc(db, 'users', currentUser.uid);
         const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -254,7 +256,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             }
         });
         return () => unsubscribe();
-    }, [currentUser.uid]);
+    }, [currentUser?.uid]);
 
   useEffect(() => {
     if (selectedUser) {
@@ -319,12 +321,39 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   }, [messages, selectedUser]);
 
+  const triggerNotification = async (messageText: string) => {
+    if (!selectedUser || !currentUser) return;
+  
+    try {
+      const userDocRef = doc(db, 'users', selectedUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+  
+      if (userDocSnap.exists()) {
+        const recipient = userDocSnap.data() as User;
+        if (recipient.fcmToken) {
+          console.log(`Sending notification to ${recipient.displayName}`);
+          await sendNotificationFlow({
+            recipientToken: recipient.fcmToken,
+            title: `New message from ${currentUser.displayName}`,
+            body: messageText,
+          });
+        } else {
+            console.log(`Recipient ${recipient.displayName} does not have an FCM token.`);
+        }
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+    }
+  };
+  
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() && !audioBlob) return;
     if (!chatId || !selectedUser) return;
 
     let messageData: Omit<Message, 'id'>;
+    let messageTextForNotification: string;
 
     if (audioBlob) {
       setUploading(true);
@@ -347,6 +376,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
           readBy: [],
           deletedFor: [],
         };
+        messageTextForNotification = "Sent a voice message.";
       } else {
         toast({
           title: 'Upload Failed',
@@ -366,11 +396,15 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         readBy: [],
         deletedFor: [],
       };
+      messageTextForNotification = newMessage;
     }
 
     setNewMessage('');
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
+    
+    // Trigger notification after message is sent
+    await triggerNotification(messageTextForNotification);
 
     const chatRef = doc(db, 'chats', chatId);
     await setDoc(
@@ -433,8 +467,12 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         readBy: [],
         deletedFor: [],
       };
+      const messageText = `Sent a ${result.fileType.split('/')[0] || 'file'}`;
+
       // Not awaiting this intentionally to provide optimistic UI
       addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
+      triggerNotification(messageText);
+
     } else {
       toast({
         title: 'Upload Failed',
@@ -674,5 +712,3 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
-
-    
