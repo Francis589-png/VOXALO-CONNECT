@@ -35,13 +35,17 @@ export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
     content: [{ text: msg.content }],
   }));
 
+  // Add the new user message to the history
+  history.push({
+    role: 'user',
+    content: [{ text: input.message }],
+  });
+  
   const { text } = await ai.generate({
     history,
     prompt: `You are King AJ, a helpful AI assistant. Your name is strictly King AJ. Respond to the user's message in a conversational and friendly tone.
 
-If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.
-
-${input.message}`,
+If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.`,
   });
 
   return { response: text };
