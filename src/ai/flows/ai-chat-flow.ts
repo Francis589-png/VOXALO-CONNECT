@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { Message as FirestoreMessage } from '@/types';
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'model']),
@@ -18,9 +19,9 @@ const MessageSchema = z.object({
 
 const AiChatInputSchema = z.object({
   history: z
-    .array(MessageSchema)
+    .array(z.any()) // Allow any initially, will be validated internally
     .optional()
-    .describe('The conversation history.'),
+    .describe('The conversation history from Firestore.'),
   message: z.string().describe("The user's message to the AI assistant."),
 });
 export type AiChatInput = z.infer<typeof AiChatInputSchema>;
@@ -31,9 +32,13 @@ const AiChatOutputSchema = z.object({
 export type AiChatOutput = z.infer<typeof AiChatOutputSchema>;
 
 export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
-  const history = (input.history || []).map((msg) => ({
-    role: msg.role,
-    content: [{ text: msg.content }],
+  // Gracefully handle undefined or empty history
+  const firestoreHistory = (input.history || []) as FirestoreMessage[];
+
+  // Transform the Firestore messages into the format the AI model expects
+  const history = firestoreHistory.map((msg) => ({
+    role: msg.senderId === 'ai-assistant' ? ('model' as const) : ('user' as const),
+    content: [{ text: msg.text }],
   }));
 
   // Add the new user message to the history
