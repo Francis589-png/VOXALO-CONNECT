@@ -39,7 +39,7 @@ const AiChatOutputSchema = z.object({
 export type AiChatOutput = z.infer<typeof AiChatOutputSchema>;
 
 export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
-  const firestoreHistory = input.history || [];
+  const firestoreHistory = (input.history || []) as FirestoreMessage[];
 
   // Transform the Firestore messages into the format the AI model expects
   const history = firestoreHistory.map((msg) => {
