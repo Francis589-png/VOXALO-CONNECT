@@ -19,9 +19,6 @@ export interface Message {
   text: string;
   senderId: string;
   timestamp: Timestamp | Date; // Allow Date for local AI messages
-  fileUrl?: string;
-  fileType?: string;
-  fileName?: string;
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };

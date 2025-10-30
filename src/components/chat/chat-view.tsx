@@ -1,4 +1,3 @@
-
 'use client';
 import {
   addDoc,
@@ -290,9 +289,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     if (!newMessage.trim()) return;
     if (!chatId || !selectedUser) return;
 
-    let messageData: Omit<Message, 'id'>;
-    
-    messageData = {
+    const messageData: Omit<Message, 'id'> = {
         text: newMessage,
         senderId: currentUser.uid,
         timestamp: serverTimestamp(),
@@ -300,7 +297,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         deletedFor: [],
     };
     
-
     setNewMessage('');
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);

@@ -55,7 +55,7 @@ export default function SignupPage() {
       await setDoc(doc(db, 'users', user.uid), {
         uid: user.uid,
         displayName: values.displayName,
-        email: values.email,
+        email: user.email,
         photoURL,
         lastSeen: serverTimestamp(),
         theme: 'system',
