@@ -344,16 +344,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         try {
             const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc')));
             
-            const historyForAI = historySnapshot.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                role: data.senderId === currentUser.uid ? ('user' as const) : ('model' as const),
-                content: data.text,
-              };
-            });
+            const historyForAI = historySnapshot.docs.map((doc) => doc.data() as Message);
 
             const { response } = await aiChatFlow({ 
-                history: historyForAI,
+                history: historyForAI.map(m => ({ role: m.senderId === currentUser.uid ? 'user':'model', content: m.text})),
                 message: currentMessage
             });
             
@@ -649,3 +643,5 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
+
+    
