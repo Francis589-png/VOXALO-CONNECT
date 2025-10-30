@@ -4,7 +4,7 @@
  *
  * - aiChatFlow - A function that takes a message and returns an AI-generated response.
  * - AiChatInput - The input type for the aiChatFlow function.
- * - AiChatOutput - The return type for the ai--chat-flow function.
+ * - AiChatOutput - The return type for the ai--chat-flow.ts function.
  */
 
 import { ai } from '@/ai/genkit';
