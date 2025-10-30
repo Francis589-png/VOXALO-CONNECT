@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, ChangeEvent } from 'react';
 import { formatRelative } from 'date-fns';
+import Image from 'next/image';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -233,6 +234,8 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const { friendships } = useFriends();
   const { toast } = useToast();
   const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
+  const [currentUserData, setCurrentUserData] = useState<User | null>(null);
+
 
   const canChat =
     selectedUser &&
@@ -242,6 +245,16 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     currentUser && selectedUser
       ? [currentUser.uid, selectedUser.uid].sort().join('_')
       : null;
+
+    useEffect(() => {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+            setCurrentUserData(docSnap.data() as User);
+            }
+        });
+        return () => unsubscribe();
+    }, [currentUser.uid]);
 
   useEffect(() => {
     if (selectedUser) {
@@ -527,14 +540,18 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     );
   }
   
-  const handleAddFriend = () => {
-    // Placeholder for friend request logic
-    console.log('Friend request sent to', selectedUser.displayName);
-  };
-
   return (
-    <div className="flex h-full max-h-screen flex-col">
-      <div className="flex items-center gap-4 border-b p-4">
+    <div className="flex h-full max-h-screen flex-col relative">
+      {currentUserData?.chatWallpaper && (
+        <Image
+            src={currentUserData.chatWallpaper}
+            alt="Chat wallpaper"
+            layout="fill"
+            objectFit="cover"
+            className="absolute inset-0 z-0 opacity-20 dark:opacity-10"
+        />
+      )}
+      <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
         <Avatar className="h-10 w-10">
           <AvatarImage
             src={selectedUser.photoURL!}
@@ -549,7 +566,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       </div>
       {canChat ? (
         <>
-          <ScrollArea className="flex-1 bg-muted/30" ref={scrollAreaRef}>
+          <ScrollArea className="flex-1 z-10" ref={scrollAreaRef}>
             <div className="p-6 space-y-4">
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
@@ -572,9 +589,9 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             </div>
           </ScrollArea>
           {uploading && (
-            <Progress value={uploadProgress} className="h-1 w-full" />
+            <Progress value={uploadProgress} className="h-1 w-full z-10" />
           )}
-          <div className="border-t p-4 bg-background">
+          <div className="border-t p-4 bg-background z-10">
             {audioBlob && (
               <div className="flex items-center gap-2 mb-2 p-2 rounded-lg bg-muted">
                 <audio
@@ -639,7 +656,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
           </div>
         </>
       ) : (
-        <div className="flex h-full flex-col items-center justify-center bg-muted/30">
+        <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
           <div className="text-center p-4">
              <Avatar className="h-24 w-24 mx-auto mb-4">
                 <AvatarImage src={selectedUser.photoURL!} alt={selectedUser.displayName!} />

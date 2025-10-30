@@ -10,6 +10,8 @@ export interface User {
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
   bio?: string;
+  theme?: 'light' | 'dark' | 'system';
+  chatWallpaper?: string;
 }
 
 export interface Message {

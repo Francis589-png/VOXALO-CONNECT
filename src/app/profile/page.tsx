@@ -7,8 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Monitor } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,17 +24,24 @@ import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { cn } from '@/lib/utils';
+import { wallpaperOptions } from '@/lib/wallpapers';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   readReceiptsEnabled: z.boolean(),
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
+  theme: z.string(),
+  chatWallpaper: z.string(),
 });
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
+  const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
 
@@ -42,6 +51,8 @@ export default function ProfilePage() {
       displayName: '',
       readReceiptsEnabled: true,
       bio: '',
+      theme: 'system',
+      chatWallpaper: '/wallpapers/default.png',
     },
   });
 
@@ -56,6 +67,8 @@ export default function ProfilePage() {
           if (userData) {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('bio', userData.bio || '');
+            form.setValue('theme', userData.theme || 'system');
+            form.setValue('chatWallpaper', userData.chatWallpaper || '/wallpapers/default.png');
           }
         }
       });
@@ -97,7 +110,11 @@ export default function ProfilePage() {
         photoURL,
         readReceiptsEnabled: values.readReceiptsEnabled,
         bio: values.bio,
+        theme: values.theme,
+        chatWallpaper: values.chatWallpaper,
       });
+
+      setTheme(values.theme);
 
       toast({
         title: 'Profile Updated',
@@ -122,7 +139,7 @@ export default function ProfilePage() {
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center p-4 bg-muted/40">
-        <Card className="w-full max-w-md relative">
+        <Card className="w-full max-w-lg relative">
             <CardHeader>
                 <div className="absolute top-4 left-4">
                 <Button variant="ghost" size="icon" asChild>
@@ -132,7 +149,7 @@ export default function ProfilePage() {
                 </Button>
                 </div>
                 <CardTitle className="text-2xl text-center pt-8">Edit Profile</CardTitle>
-                <CardDescription className="text-center">Manage your account settings.</CardDescription>
+                <CardDescription className="text-center">Manage your account settings and preferences.</CardDescription>
             </CardHeader>
             <CardContent>
                 <Form {...form}>
@@ -177,6 +194,108 @@ export default function ProfilePage() {
                           </FormItem>
                       )}
                     />
+                    
+                    <Separator />
+
+                    <div>
+                        <h3 className="text-lg font-medium">Theme</h3>
+                        <p className="text-sm text-muted-foreground">Select your preferred application theme.</p>
+                    </div>
+
+                    <FormField
+                        control={form.control}
+                        name="theme"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3">
+                                <FormControl>
+                                    <RadioGroup
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    className="grid grid-cols-3 gap-4"
+                                    >
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroupItem value="light" className="sr-only" id="light" />
+                                            </FormControl>
+                                            <Label htmlFor="light" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                                <Sun className="mb-3 h-6 w-6" />
+                                                Light
+                                            </Label>
+                                        </FormItem>
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroupItem value="dark" className="sr-only" id="dark" />
+                                            </FormControl>
+                                            <Label htmlFor="dark" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                                <Moon className="mb-3 h-6 w-6" />
+                                                Dark
+                                            </Label>
+                                        </FormItem>
+                                        <FormItem>
+                                            <FormControl>
+                                                <RadioGroupItem value="system" className="sr-only" id="system" />
+                                            </FormControl>
+                                            <Label htmlFor="system" className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary">
+                                                <Monitor className="mb-3 h-6 w-6" />
+                                                System
+                                            </Label>
+                                        </FormItem>
+                                    </RadioGroup>
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    
+                    <Separator />
+                    
+                    <div>
+                        <h3 className="text-lg font-medium">Chat Wallpaper</h3>
+                        <p className="text-sm text-muted-foreground">Choose a background for your chats.</p>
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="chatWallpaper"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <RadioGroup
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              className="grid grid-cols-3 sm:grid-cols-4 gap-4"
+                            >
+                              {wallpaperOptions.map((wallpaper) => (
+                                <FormItem key={wallpaper.value}>
+                                  <FormControl>
+                                    <RadioGroupItem value={wallpaper.value} id={wallpaper.value} className="sr-only" />
+                                  </FormControl>
+                                  <Label
+                                    htmlFor={wallpaper.value}
+                                    className={cn(
+                                      "block w-full h-24 rounded-md border-2 border-muted overflow-hidden cursor-pointer",
+                                      "hover:border-primary focus:border-primary",
+                                      field.value === wallpaper.value && "border-primary ring-2 ring-primary"
+                                    )}
+                                  >
+                                    <Image
+                                      src={wallpaper.thumbnail}
+                                      alt={wallpaper.name}
+                                      width={100}
+                                      height={100}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </Label>
+                                </FormItem>
+                              ))}
+                            </RadioGroup>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Separator />
 
                     <FormField
                         control={form.control}
