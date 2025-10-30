@@ -41,10 +41,12 @@ export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
   const firestoreHistory = input.history || [];
 
   // Transform the Firestore messages into the format the AI model expects
-  const history = firestoreHistory.map((msg) => ({
-    role: msg.senderId === 'ai-assistant' ? ('model' as const) : ('user' as const),
-    content: [{ text: msg.text }],
-  }));
+  const history = firestoreHistory.map((msg) => {
+    return {
+      role: msg.senderId === 'ai-assistant' ? ('model' as const) : ('user' as const),
+      content: [{ text: msg.text }],
+    };
+  });
 
   // Add the new user message to the history
   history.push({
