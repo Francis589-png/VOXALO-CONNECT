@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { Readable } from 'stream';
 
-const PINATA_GATEWAY_URL = process.env.PINATA_GATEWAY_URL;
-const PINATA_JWT = process.env.PINATA_JWT;
+const PINATA_GATEWAY_URL = process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL;
+const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
 
 async function uploadToPinata(
   fileStream: Readable,
