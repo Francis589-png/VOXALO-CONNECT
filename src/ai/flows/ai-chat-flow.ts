@@ -10,6 +10,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { Message as FirestoreMessage } from '@/types';
 
 const SerializableMessageSchema = z.object({
   id: z.string(),
