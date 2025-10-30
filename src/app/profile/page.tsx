@@ -21,10 +21,12 @@ import { uploadFile } from '@/lib/pinata';
 import { useAuth } from '@/hooks/use-auth';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   readReceiptsEnabled: z.boolean(),
+  bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
 });
 
 export default function ProfilePage() {
@@ -39,6 +41,7 @@ export default function ProfilePage() {
     defaultValues: {
       displayName: '',
       readReceiptsEnabled: true,
+      bio: '',
     },
   });
 
@@ -50,10 +53,9 @@ export default function ProfilePage() {
       getDoc(userDocRef).then((docSnap) => {
         if (docSnap.exists()) {
           const userData = docSnap.data();
-          if (userData && typeof userData.readReceiptsEnabled === 'boolean') {
-            form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled);
-          } else {
-            form.setValue('readReceiptsEnabled', true); // Default to true if not set
+          if (userData) {
+            form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
+            form.setValue('bio', userData.bio || '');
           }
         }
       });
@@ -94,6 +96,7 @@ export default function ProfilePage() {
         displayName: values.displayName,
         photoURL,
         readReceiptsEnabled: values.readReceiptsEnabled,
+        bio: values.bio,
       });
 
       toast({
@@ -141,25 +144,39 @@ export default function ProfilePage() {
                         />
                     </div>
                     <FormField
-                    control={form.control}
-                    name="displayName"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Display Name</FormLabel>
-                        <FormControl>
-                            <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
+                      control={form.control}
+                      name="displayName"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Display Name</FormLabel>
+                          <FormControl>
+                              <Input placeholder="John Doe" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                          </FormItem>
+                      )}
                     />
                     <FormItem>
                         <FormLabel>Email</FormLabel>
                         <FormControl>
                             <Input placeholder={user.email!} disabled />
                         </FormControl>
-                        <FormMessage />
                     </FormItem>
+                    
+                    <FormField
+                      control={form.control}
+                      name="bio"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Bio</FormLabel>
+                          <FormControl>
+                              <Textarea placeholder="Tell us a little bit about yourself" {...field} />
+                          </FormControl>
+                          <FormDescription>A brief description of yourself. Shown on your profile.</FormDescription>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                    />
 
                     <FormField
                         control={form.control}

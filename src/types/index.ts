@@ -9,6 +9,7 @@ export interface User {
   lastSeen?: Timestamp;
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
+  bio?: string;
 }
 
 export interface Message {
@@ -21,6 +22,7 @@ export interface Message {
   fileName?: string;
   readBy?: string[];
   deletedFor?: string[];
+  reactions?: { [emoji: string]: string[] };
 }
 
 export interface Chat {
