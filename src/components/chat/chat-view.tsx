@@ -546,7 +546,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         <Image
             src={currentUserData.chatWallpaper}
             alt="Chat wallpaper"
-            layout="fill"
+            fill
             objectFit="cover"
             className="absolute inset-0 z-0 opacity-20 dark:opacity-10"
         />
@@ -674,3 +674,5 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
+
+    
