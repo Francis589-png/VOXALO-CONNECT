@@ -16,7 +16,10 @@ const MessageSchema = z.object({
 });
 
 const AiChatInputSchema = z.object({
-  history: z.array(MessageSchema).optional().describe('The conversation history.'),
+  history: z
+    .array(MessageSchema)
+    .optional()
+    .describe('The conversation history.'),
   message: z.string().describe("The user's message to the AI assistant."),
 });
 export type AiChatInput = z.infer<typeof AiChatInputSchema>;
@@ -36,7 +39,9 @@ export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
     history,
     prompt: `You are King AJ, a helpful AI assistant. Your name is strictly King AJ. Respond to the user's message in a conversational and friendly tone.
 
-If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.`,
+If the user asks who created you or what your origin is, you should state that you were developed by the JUSU TECH TEAM (JTT), which was founded by Francis Jusu. Do not volunteer this information unless you are asked.
+
+${input.message}`,
   });
 
   return { response: text };

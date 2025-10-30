@@ -88,7 +88,7 @@ function MessageBubble({
   onDeleteForMe: (messageId: string) => void;
   onDeleteForEveryone: (messageId: string) => void;
 }) {
-  const date = (message.timestamp as Timestamp)?.toDate ? (message.timestamp as Timestamp).toDate() : (message.timestamp as Date);
+  const date = message.timestamp?.toDate ? (message.timestamp as Timestamp).toDate() : (message.timestamp as Date);
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
   const renderContent = () => {
@@ -344,12 +344,13 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         try {
             const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc')));
             
-            const historyForAI = historySnapshot.docs
-            .map(doc => doc.data() as Message)
-            .map(msg => ({
-                role: msg.senderId === currentUser.uid ? 'user' as const : 'model' as const,
-                content: msg.text,
-            }));
+            const historyForAI = historySnapshot.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                role: data.senderId === currentUser.uid ? ('user' as const) : ('model' as const),
+                content: data.text,
+              };
+            });
 
             const { response } = await aiChatFlow({ 
                 history: historyForAI,
