@@ -8,7 +8,6 @@ import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
 import Loading from '@/app/loading';
-import { requestNotificationPermission } from '@/lib/fcm';
 
 
 type AuthContextType = {
@@ -30,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
-        requestNotificationPermission(user.uid);
         
         const userDocRef = doc(db, 'users', user.uid);
         updateDoc(userDocRef, {
