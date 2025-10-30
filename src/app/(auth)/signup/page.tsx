@@ -16,8 +16,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { Icons } from '@/components/icons';
-import ProfilePictureUploader from '@/components/profile-picture-uploader';
-import { uploadFile } from '@/lib/pinata';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -29,7 +27,6 @@ export default function SignupPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [profilePicture, setProfilePicture] = useState<File | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -43,21 +40,9 @@ export default function SignupPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      let photoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+      const photoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(
         values.displayName
       )}&background=random`;
-
-      if (profilePicture) {
-        const formData = new FormData();
-        formData.append('file', profilePicture);
-        const result = await uploadFile(formData);
-
-        if ('fileUrl' in result) {
-          photoURL = result.fileUrl;
-        } else {
-          throw new Error(result.error || 'Failed to upload profile picture.');
-        }
-      }
 
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
@@ -108,9 +93,6 @@ export default function SignupPage() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className='flex justify-center pb-4'>
-                <ProfilePictureUploader onPictureChange={setProfilePicture} />
-            </div>
             <FormField
               control={form.control}
               name="displayName"
