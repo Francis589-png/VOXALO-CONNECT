@@ -61,8 +61,6 @@ export default function ContactsList({
 }: ContactsListProps) {
   const { friendships } = useFriends();
 
-  const aiAssistant = users.find(u => u.uid === 'ai-assistant');
-
   const friends = friendships.map(f => f.friend).filter(Boolean);
   const friendUids = friends.map(f => f.uid);
 
@@ -76,7 +74,7 @@ export default function ContactsList({
 
   // Get the complete friend objects from the map
   const friendUsers = Array.from(friendMap.values());
-  const allContacts = aiAssistant ? [aiAssistant, ...friendUsers] : friendUsers;
+  const allContacts = friendUsers;
 
 
   if (allContacts.length === 0) {
@@ -103,27 +101,12 @@ export default function ContactsList({
             }`}
             >
             <Avatar className="h-10 w-10">
-                {contact.uid === 'ai-assistant' ? (
-                     <div className="flex h-full w-full items-center justify-center rounded-full bg-primary/20 text-primary">
-                        <Icons.bot className="h-6 w-6" />
-                    </div>
-                ) : (
-                    <>
-                        <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
-                        <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
-                    </>
-                )}
+              <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
+              <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
                 <p className="font-semibold truncate">{contact.displayName}</p>
-                {contact.uid === 'ai-assistant' ? (
-                     <div className="flex items-center gap-1.5">
-                        <span className="h-2 w-2 rounded-full bg-green-500"></span>
-                        <p className="text-xs text-muted-foreground truncate">Online</p>
-                    </div>
-                ) : (
-                    <UserPresence userId={contact.uid} />
-                )}
+                <UserPresence userId={contact.uid} />
             </div>
             </button>
         ))}

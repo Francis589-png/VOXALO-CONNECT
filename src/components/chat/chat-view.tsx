@@ -48,7 +48,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { aiChatFlow } from '@/ai/flows/ai-chat-flow';
 import { Icons } from '../icons';
 
 interface ChatViewProps {
@@ -65,8 +64,7 @@ function ReadReceipt({
   isOwnMessage: boolean;
   recipientHasRead: boolean;
 }) {
-  const isAiMessage = message.senderId === 'ai-assistant';
-  if (!isOwnMessage || isAiMessage) return null;
+  if (!isOwnMessage) return null;
 
   if (recipientHasRead) {
     return <CheckCheck className="h-4 w-4 text-blue-500" />;
@@ -92,15 +90,6 @@ function MessageBubble({
   const formattedDate = date ? formatRelative(date, new Date()) : '';
 
   const renderContent = () => {
-    if (message.text === '...') {
-        return (
-            <div className="flex items-center gap-2">
-                <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                <div className="h-2 w-2 bg-current rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                <div className="h-2 w-2 bg-current rounded-full animate-bounce"></div>
-            </div>
-        )
-    }
     if (message.fileType?.startsWith('image/')) {
       return (
         <img
@@ -202,10 +191,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
   const { toast } = useToast();
   const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
 
-  const isAiAssistant = selectedUser?.uid === 'ai-assistant';
-
-  const canChat =
-    isAiAssistant || (selectedUser && friendships.some((f) => f.friend.uid === selectedUser.uid));
+  const canChat = selectedUser && friendships.some((f) => f.friend.uid === selectedUser.uid);
 
   const chatId =
     currentUser && selectedUser
@@ -214,19 +200,15 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
   useEffect(() => {
     if (selectedUser) {
-      if (isAiAssistant) {
-        setSelectedUserData(selectedUser);
-      } else {
-        const userDocRef = doc(db, 'users', selectedUser.uid);
-        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            setSelectedUserData(docSnap.data() as User);
-          }
-        });
-        return () => unsubscribe();
-      }
+      const userDocRef = doc(db, 'users', selectedUser.uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          setSelectedUserData(docSnap.data() as User);
+        }
+      });
+      return () => unsubscribe();
     }
-  }, [selectedUser, isAiAssistant]);
+  }, [selectedUser]);
   
   useEffect(() => {
     if (!chatId) {
@@ -244,23 +226,21 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         
       setMessages(messagesData);
   
-      if (!isAiAssistant) {
-        messagesData.forEach((message) => {
-          if (
-            message.senderId === selectedUser.uid &&
-            !message.readBy?.includes(currentUser.uid)
-          ) {
-            const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
-            updateDoc(messageRef, {
-              readBy: arrayUnion(currentUser.uid),
-            });
-          }
-        });
-      }
+      messagesData.forEach((message) => {
+        if (
+          message.senderId === selectedUser?.uid &&
+          !message.readBy?.includes(currentUser.uid)
+        ) {
+          const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+          updateDoc(messageRef, {
+            readBy: arrayUnion(currentUser.uid),
+          });
+        }
+      });
     });
   
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, selectedUser?.uid, isAiAssistant]);
+  }, [chatId, currentUser.uid, selectedUser?.uid]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -278,8 +258,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const currentMessage = newMessage.trim();
-    if (!currentMessage && !audioBlob) return;
+    if (!newMessage.trim() && !audioBlob) return;
 
     if (!chatId || !selectedUser) return;
 
@@ -331,110 +310,57 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
     
-    if (isAiAssistant) {
-        // Add a temporary thinking message
-        const thinkingMessage: Message = {
-            id: `ai-thinking-${Date.now()}`,
-            text: '...',
-            senderId: 'ai-assistant',
-            timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, thinkingMessage]);
-
-        try {
-            const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc')));
-            
-            // Convert Timestamps to ISO strings to make them serializable
-            const history = historySnapshot.docs.map(doc => {
-                const data = doc.data() as Message;
-                const timestamp = data.timestamp as Timestamp;
-                return {
-                    ...data,
-                    id: doc.id,
-                    timestamp: timestamp?.toDate ? timestamp.toDate().toISOString() : new Date().toISOString(),
-                };
-            });
-
-            const { response } = await aiChatFlow({ 
-                history,
-                message: currentMessage
-            });
-            
-            const aiMessage: Partial<Message> = {
-                text: response,
-                senderId: 'ai-assistant',
-                timestamp: serverTimestamp(),
-                readBy: [],
-                deletedFor: [],
-            };
-            await addDoc(collection(db, 'chats', chatId, 'messages'), aiMessage);
-
-        } catch (error) {
-            console.error("AI chat failed:", error);
-            const errorMessage: Partial<Message> = {
-                text: "Sorry, I couldn't process that. Please try again.",
-                senderId: 'ai-assistant',
-                timestamp: serverTimestamp(),
-            };
-            await addDoc(collection(db, 'chats', chatId, 'messages'), errorMessage);
-        } finally {
-            // Remove thinking message by ID
-            setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
-        }
-    } else {
-        // This is a human-to-human message
-        const chatRef = doc(db, 'chats', chatId);
-        await setDoc(
-          chatRef,
+    const chatRef = doc(db, 'chats', chatId);
+    await setDoc(
+      chatRef,
+      {
+        users: [currentUser.uid, selectedUser.uid],
+        userInfos: [
           {
-            users: [currentUser.uid, selectedUser.uid],
-            userInfos: [
-              {
-                uid: currentUser.uid,
-                displayName: currentUser.displayName,
-                email: currentUser.email,
-                photoURL: currentUser.photoURL,
-              },
-              {
-                uid: selectedUser.uid,
-                displayName: selectedUser.displayName,
-                email: selectedUser.email,
-                photoURL: selectedUser.photoURL,
-              },
-            ],
-            lastMessage: {
-              text:
-                messageData.text ||
-                `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
-              senderId: messageData.senderId,
-              timestamp: messageData.timestamp,
-            },
+            uid: currentUser.uid,
+            displayName: currentUser.displayName,
+            email: currentUser.email,
+            photoURL: currentUser.photoURL,
           },
-          { merge: true }
-        );
+          {
+            uid: selectedUser.uid,
+            displayName: selectedUser.displayName,
+            email: selectedUser.email,
+            photoURL: selectedUser.photoURL,
+          },
+        ],
+        lastMessage: {
+          text:
+            messageData.text ||
+            `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+          senderId: messageData.senderId,
+          timestamp: messageData.timestamp,
+        },
+      },
+      { merge: true }
+    );
 
-        if (selectedUserData?.fcmToken) {
-            try {
-                await sendNotificationFlow({
-                    recipientToken: selectedUserData.fcmToken,
-                    title: currentUser.displayName || 'New Message',
-                    body: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
-                });
-            } catch (error) {
-                console.error('Failed to send notification via server flow:', error);
-                toast({
-                    title: 'Notification Error',
-                    description: 'Could not send notification.',
-                    variant: 'destructive',
-                });
-            }
+    if (selectedUserData?.fcmToken) {
+        try {
+            await sendNotificationFlow({
+                recipientToken: selectedUserData.fcmToken,
+                title: currentUser.displayName || 'New Message',
+                body: messageData.text || `Sent a ${messageData.fileType?.split('/')[0] || 'file'}.`,
+            });
+        } catch (error) {
+            console.error('Failed to send notification via server flow:', error);
+            toast({
+                title: 'Notification Error',
+                description: 'Could not send notification.',
+                variant: 'destructive',
+            });
         }
     }
   };
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !chatId || !selectedUser || isAiAssistant) return;
+    if (!file || !chatId || !selectedUser) return;
 
     setUploading(true);
     setUploadProgress(0);
@@ -538,19 +464,11 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     <div className="flex h-full max-h-screen flex-col">
       <div className="flex items-center gap-4 border-b p-4">
         <Avatar className="h-10 w-10">
-          {isAiAssistant ? (
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-primary/20 text-primary">
-                <Icons.bot className="h-6 w-6" />
-            </div>
-          ) : (
-            <>
-              <AvatarImage
-                src={selectedUser.photoURL!}
-                alt={selectedUser.displayName!}
-              />
-              <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
-            </>
-          )}
+          <AvatarImage
+            src={selectedUser.photoURL!}
+            alt={selectedUser.displayName!}
+          />
+          <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
         </Avatar>
         <h2 className="text-lg font-semibold">{selectedUser.displayName}</h2>
       </div>
@@ -561,7 +479,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
                 const recipientHasRead =
-                  !isAiAssistant &&
                   selectedUserData?.readReceiptsEnabled !== false &&
                   !!message.readBy?.includes(selectedUser.uid);
                 return (
@@ -608,14 +525,13 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 ref={fileInputRef}
                 onChange={handleFileChange}
                 className="hidden"
-                disabled={isAiAssistant}
               />
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isRecording || !!audioBlob || isAiAssistant}
+                disabled={isRecording || !!audioBlob}
               >
                 <Paperclip className="h-5 w-5" />
               </Button>
@@ -624,7 +540,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 size="icon"
                 variant={isRecording ? 'destructive' : 'ghost'}
                 onClick={handleMicClick}
-                disabled={!!audioBlob || isAiAssistant}
+                disabled={!!audioBlob}
               >
                 <Mic className="h-5 w-5" />
               </Button>
