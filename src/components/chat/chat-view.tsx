@@ -344,8 +344,16 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         try {
             const historySnapshot = await getDocs(query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc')));
             
-            // Pass the raw message documents to the flow
-            const history = historySnapshot.docs.map(doc => ({...doc.data(), id: doc.id} as Message));
+            // Convert Timestamps to ISO strings to make them serializable
+            const history = historySnapshot.docs.map(doc => {
+                const data = doc.data() as Message;
+                const timestamp = data.timestamp as Timestamp;
+                return {
+                    ...data,
+                    id: doc.id,
+                    timestamp: timestamp?.toDate ? timestamp.toDate().toISOString() : new Date().toISOString(),
+                };
+            });
 
             const { response } = await aiChatFlow({ 
                 history,

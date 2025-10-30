@@ -10,11 +10,22 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { Message as FirestoreMessage } from '@/types';
+
+const SerializableMessageSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  senderId: z.string(),
+  timestamp: z.string(), // Timestamps are passed as ISO strings
+  fileUrl: z.string().optional(),
+  fileType: z.string().optional(),
+  fileName: z.string().optional(),
+  readBy: z.array(z.string()).optional(),
+  deletedFor: z.array(z.string()).optional(),
+});
 
 const AiChatInputSchema = z.object({
   history: z
-    .array(z.any()) // Using z.any() because FirestoreMessage is complex
+    .array(SerializableMessageSchema)
     .optional()
     .describe('The conversation history from Firestore.'),
   message: z.string().describe("The user's message to the AI assistant."),
@@ -27,7 +38,7 @@ const AiChatOutputSchema = z.object({
 export type AiChatOutput = z.infer<typeof AiChatOutputSchema>;
 
 export async function aiChatFlow(input: AiChatInput): Promise<AiChatOutput> {
-  const firestoreHistory = (input.history || []) as FirestoreMessage[];
+  const firestoreHistory = input.history || [];
 
   // Transform the Firestore messages into the format the AI model expects
   const history = firestoreHistory.map((msg) => ({
