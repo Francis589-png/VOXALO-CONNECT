@@ -4,12 +4,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft, Moon, Sun, Monitor, User as UserIcon } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Monitor, User as UserIcon, Upload, Wallpaper } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
+import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +25,7 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { uploadFile } from '@/lib/pinata';
 
 
 const formSchema = z.object({
@@ -31,6 +33,8 @@ const formSchema = z.object({
   readReceiptsEnabled: z.boolean(),
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
   theme: z.string(),
+  photo: z.instanceof(File).optional(),
+  wallpaper: z.instanceof(File).optional(),
 });
 
 export default function ProfilePage() {
@@ -39,6 +43,11 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [wallpaperPreview, setWallpaperPreview] = useState<string | null>(null);
+  
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const wallpaperInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -53,6 +62,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       form.setValue('displayName', user.displayName || '');
+      setPhotoPreview(user.photoURL);
       
       const userDocRef = doc(db, 'users', user.uid);
       getDoc(userDocRef).then((docSnap) => {
@@ -62,11 +72,36 @@ export default function ProfilePage() {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('bio', userData.bio || '');
             form.setValue('theme', userData.theme || 'system');
+            setWallpaperPreview(userData.chatWallpaper || null);
           }
         }
       });
     }
   }, [user, form]);
+  
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      form.setValue('photo', file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
+  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      form.setValue('wallpaper', file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWallpaperPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -76,9 +111,15 @@ export default function ProfilePage() {
 
     setIsLoading(true);
     try {
-      const photoURL = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        values.displayName
-      )}&background=random`;
+      let photoURL = user.photoURL;
+      if (values.photo) {
+        photoURL = await uploadFile(values.photo);
+      }
+
+      let chatWallpaperURL;
+      if (values.wallpaper) {
+        chatWallpaperURL = await uploadFile(values.wallpaper);
+      }
 
       await updateProfile(user, {
         displayName: values.displayName,
@@ -92,6 +133,7 @@ export default function ProfilePage() {
         readReceiptsEnabled: values.readReceiptsEnabled,
         bio: values.bio,
         theme: values.theme,
+        ...(chatWallpaperURL && { chatWallpaper: chatWallpaperURL }),
       });
 
       setTheme(values.theme);
@@ -135,12 +177,30 @@ export default function ProfilePage() {
                 <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <div className='flex justify-center'>
-                       <Avatar className="h-32 w-32 border-4 border-muted">
-                            <AvatarImage src={user.photoURL || undefined} alt="Profile Picture" />
-                            <AvatarFallback className="bg-muted">
-                                <UserIcon className="h-16 w-16 text-muted-foreground" />
-                            </AvatarFallback>
-                        </Avatar>
+                       <div className="relative group">
+                            <Avatar className="h-32 w-32 border-4 border-muted">
+                                <AvatarImage src={photoPreview || undefined} alt="Profile Picture" />
+                                <AvatarFallback className="bg-muted">
+                                    <UserIcon className="h-16 w-16 text-muted-foreground" />
+                                </AvatarFallback>
+                            </Avatar>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="absolute bottom-2 right-2 rounded-full h-8 w-8 bg-background/80 group-hover:bg-background"
+                                onClick={() => photoInputRef.current?.click()}
+                            >
+                                <Upload className="h-4 w-4" />
+                            </Button>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={photoInputRef}
+                              onChange={handlePhotoChange}
+                            />
+                        </div>
                     </div>
                     <FormField
                       control={form.control}
@@ -151,7 +211,6 @@ export default function ProfilePage() {
                           <FormControl>
                               <Input placeholder="John Doe" {...field} />
                           </FormControl>
-                          <FormDescription>Your new name will be used to generate a new avatar.</FormDescription>
                           <FormMessage />
                           </FormItem>
                       )}
@@ -181,15 +240,16 @@ export default function ProfilePage() {
                     <Separator />
 
                     <div>
-                        <h3 className="text-lg font-medium">Theme</h3>
-                        <p className="text-sm text-muted-foreground">Select your preferred application theme.</p>
+                        <h3 className="text-lg font-medium">Appearance</h3>
+                        <p className="text-sm text-muted-foreground">Customize the look and feel of the app.</p>
                     </div>
 
-                    <FormField
+                     <FormField
                         control={form.control}
                         name="theme"
                         render={({ field }) => (
                             <FormItem className="space-y-3">
+                                <FormLabel>Theme</FormLabel>
                                 <FormControl>
                                     <RadioGroup
                                     onValueChange={field.onChange}
@@ -229,6 +289,37 @@ export default function ProfilePage() {
                             </FormItem>
                         )}
                     />
+
+                    <FormItem>
+                        <FormLabel>Chat Wallpaper</FormLabel>
+                        <div className="relative aspect-video w-full rounded-md border border-dashed flex items-center justify-center overflow-hidden">
+                            {wallpaperPreview ? (
+                                <Image src={wallpaperPreview} alt="Wallpaper preview" layout="fill" objectFit="cover" />
+                            ) : (
+                                <div className='text-center text-muted-foreground'>
+                                    <Wallpaper className='h-8 w-8 mx-auto mb-2' />
+                                    <p className='text-sm'>No wallpaper set</p>
+                                </div>
+                            )}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                                onClick={() => wallpaperInputRef.current?.click()}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Upload Wallpaper
+                            </Button>
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              ref={wallpaperInputRef}
+                              onChange={handleWallpaperChange}
+                            />
+                        </div>
+                        <FormDescription>This background will be applied to all of your chats.</FormDescription>
+                    </FormItem>
                     
                     <Separator />
                     
