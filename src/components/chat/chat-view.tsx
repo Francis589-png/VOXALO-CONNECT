@@ -353,7 +353,8 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
+        const options = { mimeType: 'audio/webm' };
+        const mediaRecorder = new MediaRecorder(stream, options);
         mediaRecorderRef.current = mediaRecorder;
         
         const audioChunks: BlobPart[] = [];
@@ -566,5 +567,3 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     </div>
   );
 }
-
-    
