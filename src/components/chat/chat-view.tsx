@@ -1,3 +1,4 @@
+
 'use client';
 import {
   addDoc,
@@ -38,7 +39,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
 import type { Message, User } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, getChatId } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
 import { uploadFile } from '@/lib/pinata';
@@ -51,7 +52,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { sendNotificationFlow } from '@/ai/flows/send-notification-flow';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -244,7 +244,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
   const chatId =
     currentUser && selectedUser
-      ? [currentUser.uid, selectedUser.uid].sort().join('_')
+      ? getChatId(currentUser.uid, selectedUser.uid)
       : null;
 
     useEffect(() => {

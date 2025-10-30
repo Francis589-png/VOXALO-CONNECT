@@ -5,12 +5,14 @@ import { useFriends } from '../providers/friends-provider';
 import type { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
-import { formatDistanceToNow, isWithinInterval } from 'date-fns';
-import type { Timestamp } from 'firebase/firestore';
+import { formatDistanceToNow } from 'date-fns';
 import { useEffect, useState } from 'react';
 import { onValue, ref } from 'firebase/database';
 import { rtdb } from '@/lib/firebase';
-import { Icons } from '../icons';
+import { useAuth } from '@/hooks/use-auth';
+import { useUnreadCount } from '@/hooks/use-unread-count';
+import { getChatId } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 interface ContactsListProps {
   users: User[];
@@ -53,6 +55,37 @@ function UserPresence({ userId }: { userId: string }) {
   );
 }
 
+function ContactItem({ contact, isSelected, onSelectUser }: { contact: User, isSelected: boolean, onSelectUser: (user: User) => void }) {
+    const { user: currentUser } = useAuth();
+    const chatId = currentUser ? getChatId(currentUser.uid, contact.uid) : null;
+    const unreadCount = useUnreadCount(chatId, currentUser?.uid);
+
+    return (
+        <button
+            onClick={() => onSelectUser(contact)}
+            className={`flex items-center gap-3 p-4 text-left hover:bg-muted/50 w-full ${
+                isSelected ? 'bg-muted' : ''
+            }`}
+            >
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
+              <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 overflow-hidden">
+                <div className='flex items-center justify-between'>
+                    <p className="font-semibold truncate">{contact.displayName}</p>
+                    {unreadCount > 0 && (
+                        <Badge variant="default" className="h-5 px-2 text-xs">
+                            {unreadCount}
+                        </Badge>
+                    )}
+                </div>
+                <UserPresence userId={contact.uid} />
+            </div>
+        </button>
+    );
+}
+
 
 export default function ContactsList({
   users,
@@ -93,22 +126,12 @@ export default function ContactsList({
     <ScrollArea className="h-full">
         <div className="flex flex-col">
         {allContacts.map((contact) => (
-            <button
-            key={contact.uid}
-            onClick={() => onSelectUser(contact)}
-            className={`flex items-center gap-3 p-4 text-left hover:bg-muted/50 ${
-                selectedUser?.uid === contact.uid ? 'bg-muted' : ''
-            }`}
-            >
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={contact.photoURL!} alt={contact.displayName!} />
-              <AvatarFallback>{contact.displayName?.[0]}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 overflow-hidden">
-                <p className="font-semibold truncate">{contact.displayName}</p>
-                <UserPresence userId={contact.uid} />
-            </div>
-            </button>
+            <ContactItem 
+                key={contact.uid} 
+                contact={contact}
+                isSelected={selectedUser?.uid === contact.uid}
+                onSelectUser={onSelectUser}
+            />
         ))}
         </div>
     </ScrollArea>
