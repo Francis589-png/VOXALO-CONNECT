@@ -5,14 +5,14 @@ import { useFriends } from '../providers/friends-provider';
 import type { User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
-import { formatDistanceToNow } from 'date-fns';
-import { useEffect, useState } from 'react';
-import { onValue, ref } from 'firebase/database';
-import { rtdb } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import { useUnreadCount } from '@/hooks/use-unread-count';
 import { getChatId } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useEffect, useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ContactsListProps {
   users: User[];
@@ -20,40 +20,31 @@ interface ContactsListProps {
   onSelectUser: (user: User) => void;
 }
 
-function UserPresence({ userId }: { userId: string }) {
-  const [presence, setPresence] = useState<{ state: string, last_changed: number } | null>(null);
+function UserLastSeen({ userId }: { userId: string }) {
+  const [lastSeen, setLastSeen] = useState<Date | null>(null);
 
   useEffect(() => {
-    const userStatusRef = ref(rtdb, '/status/' + userId);
-    const unsubscribe = onValue(userStatusRef, (snapshot) => {
-      const status = snapshot.val();
-      setPresence(status);
+    const userDocRef = doc(db, 'users', userId);
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      const userData = snapshot.data() as User;
+      if (userData?.lastSeen) {
+        setLastSeen(userData.lastSeen.toDate());
+      }
     });
     return () => unsubscribe();
   }, [userId]);
 
-
-  if (!presence) {
+  if (!lastSeen) {
     return <p className="text-xs text-muted-foreground truncate">Offline</p>;
-  }
-
-  const lastSeenDate = new Date(presence.last_changed);
-
-  if (presence.state === 'online') {
-    return (
-      <div className="flex items-center gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-green-500"></span>
-        <p className="text-xs text-muted-foreground truncate">Online</p>
-      </div>
-    );
   }
 
   return (
     <p className="text-xs text-muted-foreground truncate">
-      Active {formatDistanceToNow(lastSeenDate, { addSuffix: true })}
+      Active {formatDistanceToNow(lastSeen, { addSuffix: true })}
     </p>
   );
 }
+
 
 function ContactItem({ contact, isSelected, onSelectUser }: { contact: User, isSelected: boolean, onSelectUser: (user: User) => void }) {
     const { user: currentUser } = useAuth();
@@ -80,7 +71,7 @@ function ContactItem({ contact, isSelected, onSelectUser }: { contact: User, isS
                         </Badge>
                     )}
                 </div>
-                <UserPresence userId={contact.uid} />
+                <UserLastSeen userId={contact.uid} />
             </div>
         </button>
     );
