@@ -4,10 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { updateProfile } from 'firebase/auth';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft, Moon, Sun, Monitor } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Monitor, Image as ImageIcon, X } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
@@ -27,7 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { cn } from '@/lib/utils';
-import { wallpaperOptions } from '@/lib/wallpapers';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -44,6 +43,8 @@ export default function ProfilePage() {
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [profilePicture, setProfilePicture] = useState<File | null>(null);
+  const [wallpaperFile, setWallpaperFile] = useState<File | null>(null);
+  const [wallpaperPreview, setWallpaperPreview] = useState<string | null>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,7 +53,7 @@ export default function ProfilePage() {
       readReceiptsEnabled: true,
       bio: '',
       theme: 'system',
-      chatWallpaper: '/wallpapers/default.png',
+      chatWallpaper: '',
     },
   });
 
@@ -68,12 +69,34 @@ export default function ProfilePage() {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('bio', userData.bio || '');
             form.setValue('theme', userData.theme || 'system');
-            form.setValue('chatWallpaper', userData.chatWallpaper || '/wallpapers/default.png');
+            const wallpaper = userData.chatWallpaper || '';
+            form.setValue('chatWallpaper', wallpaper);
+            setWallpaperPreview(wallpaper);
           }
         }
       });
     }
   }, [user, form]);
+  
+  const handleWallpaperChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+       if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast({
+          title: 'File too large',
+          description: 'Please select an image smaller than 5MB.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setWallpaperFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setWallpaperPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) {
@@ -84,6 +107,7 @@ export default function ProfilePage() {
     setIsLoading(true);
     try {
       let photoURL = user.photoURL;
+      let chatWallpaperURL = values.chatWallpaper;
 
       if (profilePicture) {
         const formData = new FormData();
@@ -97,13 +121,22 @@ export default function ProfilePage() {
         }
       }
 
-      // Update Firebase Auth profile
+      if (wallpaperFile) {
+        const formData = new FormData();
+        formData.append('file', wallpaperFile);
+        const result = await uploadFile(formData);
+        if ('fileUrl' in result) {
+          chatWallpaperURL = result.fileUrl;
+        } else {
+          throw new Error(result.error || 'Failed to upload wallpaper.');
+        }
+      }
+
       await updateProfile(user, {
         displayName: values.displayName,
         photoURL,
       });
 
-      // Update user document in Firestore
       const userDocRef = doc(db, 'users', user.uid);
       await updateDoc(userDocRef, {
         displayName: values.displayName,
@@ -111,7 +144,7 @@ export default function ProfilePage() {
         readReceiptsEnabled: values.readReceiptsEnabled,
         bio: values.bio,
         theme: values.theme,
-        chatWallpaper: values.chatWallpaper,
+        chatWallpaper: chatWallpaperURL,
       });
 
       setTheme(values.theme);
@@ -134,7 +167,7 @@ export default function ProfilePage() {
   }
 
   if (!user) {
-    return null; // Or a loading spinner
+    return null;
   }
 
   return (
@@ -249,51 +282,45 @@ export default function ProfilePage() {
                     
                     <Separator />
                     
-                    <div>
+                     <div>
                         <h3 className="text-lg font-medium">Chat Wallpaper</h3>
                         <p className="text-sm text-muted-foreground">Choose a background for your chats.</p>
                     </div>
 
-                    <FormField
-                      control={form.control}
-                      name="chatWallpaper"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <RadioGroup
-                              onValueChange={field.onChange}
-                              value={field.value}
-                              className="grid grid-cols-3 sm:grid-cols-4 gap-4"
-                            >
-                              {wallpaperOptions.map((wallpaper) => (
-                                <FormItem key={wallpaper.value}>
-                                  <FormControl>
-                                    <RadioGroupItem value={wallpaper.value} id={wallpaper.value} className="sr-only" />
-                                  </FormControl>
-                                  <Label
-                                    htmlFor={wallpaper.value}
-                                    className={cn(
-                                      "block w-full h-24 rounded-md border-2 border-muted overflow-hidden cursor-pointer",
-                                      "hover:border-primary focus:border-primary",
-                                      field.value === wallpaper.value && "border-primary ring-2 ring-primary"
-                                    )}
-                                  >
-                                    <Image
-                                      src={wallpaper.thumbnail}
-                                      alt={wallpaper.name}
-                                      width={100}
-                                      height={100}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </Label>
-                                </FormItem>
-                              ))}
-                            </RadioGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                     <FormItem>
+                        <FormControl>
+                            <div className="relative flex items-center justify-center w-full h-48 border-2 border-dashed rounded-lg border-muted-foreground/50">
+                                {wallpaperPreview ? (
+                                    <>
+                                        <Image src={wallpaperPreview} alt="Wallpaper preview" layout="fill" objectFit="cover" className="rounded-md" />
+                                        <Button 
+                                            type="button" 
+                                            variant="destructive" 
+                                            size="icon" 
+                                            className="absolute top-2 right-2 z-10"
+                                            onClick={() => {
+                                                setWallpaperFile(null);
+                                                setWallpaperPreview(null);
+                                                form.setValue('chatWallpaper', '');
+                                            }}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <div className="text-center text-muted-foreground">
+                                        <ImageIcon className="mx-auto h-10 w-10" />
+                                        <p className="mt-2 text-sm">No wallpaper set</p>
+                                    </div>
+                                )}
+                                <label htmlFor="wallpaper-upload" className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity cursor-pointer">
+                                    <span className="text-white font-semibold">Change Wallpaper</span>
+                                </label>
+                                <input id="wallpaper-upload" type="file" className="hidden" accept="image/*" onChange={handleWallpaperChange} />
+                            </div>
+                        </FormControl>
+                        <FormDescription>Upload a custom image to use as your chat background.</FormDescription>
+                    </FormItem>
 
                     <Separator />
 
@@ -328,5 +355,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-    
