@@ -46,10 +46,13 @@ const assistantFlow = ai.defineFlow(
   async (input) => {
     // Separate the last message (the prompt) from the rest of the history.
     const history = input.history.slice(0, -1);
-    const prompt = input.history[input.history.length - 1];
+    const lastMessage = input.history[input.history.length - 1];
+    
+    // Extract the text content from the last message to use as the prompt.
+    const promptText = lastMessage.content[0]?.text || '';
 
     const { output } = await ai.generate({
-      prompt: prompt,
+      prompt: promptText,
       history: history,
       model: 'googleai/gemini-2.5-flash',
       config: {
