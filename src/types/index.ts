@@ -96,25 +96,24 @@ export interface GameMonetizeGame {
   height: string;
 }
 
-// --- YouTube Types ---
-
-export interface YouTubeVideo {
-  id: {
-    kind: string;
-    videoId: string;
+// --- Pexels Types ---
+export interface PexelsVideo {
+  id: number;
+  width: number;
+  height: number;
+  duration: number;
+  image: string; // URL to a picture
+  user: {
+    id: number;
+    name: string;
+    url: string;
   };
-  snippet: {
-    publishedAt: string;
-    channelId: string;
-    title: string;
-    description: string;
-    thumbnails: {
-      default: { url: string; width: number; height: number; };
-      medium: { url: string; width: number; height: number; };
-      high: { url: string; width: number; height: number; };
-    };
-    channelTitle: string;
-    liveBroadcastContent: string;
-    publishTime: string;
-  };
+  video_files: {
+    id: number;
+    quality: 'sd' | 'hd';
+    file_type: string;
+    width: number;
+    height: number;
+    link: string;
+  }[];
 }
