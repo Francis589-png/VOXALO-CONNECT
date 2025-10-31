@@ -10,7 +10,7 @@ import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
+import { Users, File, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ContactsListProps {
@@ -54,8 +54,6 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
         switch (lastMessage.type) {
             case 'image':
                 return <div className='flex items-center gap-1.5'><ImageIcon className='h-3 w-3' />Image</div>
-            case 'audio':
-                return <div className='flex items-center gap-1.5'><Mic className='h-3 w-3' />Audio</div>
             case 'file':
                 return <div className='flex items-center gap-1.5'><File className='h-3 w-3' />File</div>
             default:

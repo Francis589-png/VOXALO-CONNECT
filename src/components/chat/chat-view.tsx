@@ -23,14 +23,9 @@ import {
   MoreHorizontal,
   Trash,
   Smile,
-  Mic,
-  StopCircle,
   Paperclip,
   FileIcon,
   ArrowLeft,
-  Play,
-  Pause,
-  Video,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -53,7 +48,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
-import { processAudio } from '@/ai/flows/process-audio-flow';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -88,74 +82,6 @@ function ReadReceipt({
   }
 
   return <Check className="h-4 w-4 text-muted-foreground" />;
-}
-
-
-function AudioPlayer({ src }: { src: string }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-
-  const togglePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
-    }
-  };
-
-  const handleTimeUpdate = () => {
-    if (audioRef.current) {
-      setCurrentTime(audioRef.current.currentTime);
-    }
-  };
-
-  const handleLoadedData = () => {
-    if (audioRef.current) {
-      setDuration(audioRef.current.duration);
-    }
-  };
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-  
-  const formatTime = (time: number) => {
-    if (isNaN(time) || time === 0) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-
-  return (
-    <div className="flex items-center gap-2 w-64">
-      <audio
-        ref={audioRef}
-        src={src}
-        onTimeUpdate={handleTimeUpdate}
-        onLoadedData={handleLoadedData}
-        onEnded={handleEnded}
-        className="hidden"
-        preload="metadata"
-      />
-      <Button onClick={togglePlayPause} size="icon" variant="outline" className='rounded-full h-10 w-10'>
-        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-      </Button>
-      <div className="flex-1 flex flex-col gap-1">
-        <div className='w-full bg-muted rounded-full h-1.5'>
-            <div className='bg-primary h-1.5 rounded-full' style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}></div>
-        </div>
-        <div className="text-xs text-right">
-            {formatTime(currentTime)} / {formatTime(duration)}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 
@@ -212,11 +138,6 @@ function MessageBubble({
                 </div>
             </a>
         );
-    }
-    if (message.type === 'audio' && message.audioURL) {
-      return (
-        <AudioPlayer src={message.audioURL} />
-      );
     }
     return <p className="text-sm break-words">{message.text}</p>;
   };
@@ -339,11 +260,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [uploading, setUploading] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
@@ -441,7 +358,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -451,7 +368,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     
     let lastMessageText = '';
     switch (messageData.type) {
-        case 'audio': lastMessageText = 'Audio message'; break;
         case 'image': lastMessageText = 'Image'; break;
         case 'file': lastMessageText = messageData.fileName || 'File'; break;
         default: lastMessageText = messageData.text || '';
@@ -484,79 +400,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         deletedFor: [],
     };
     await addMessageToChat(messageData);
-  };
-
-    const blobToBase64 = (blob: Blob): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    };
-
-  const handleToggleRecording = async () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const options = { mimeType: 'audio/webm' };
-        const mediaRecorder = new MediaRecorder(stream, options);
-        mediaRecorderRef.current = mediaRecorder;
-        
-        const audioChunks: Blob[] = [];
-        mediaRecorder.ondataavailable = (event) => {
-            audioChunks.push(event.data);
-        };
-
-        mediaRecorder.onstart = () => {
-            setIsRecording(true);
-            setRecordingTime(0);
-            recordingIntervalRef.current = setInterval(() => {
-                setRecordingTime(prevTime => prevTime + 1);
-            }, 1000);
-        };
-
-        mediaRecorder.onstop = async () => {
-            if (recordingIntervalRef.current) {
-                clearInterval(recordingIntervalRef.current);
-            }
-            setIsRecording(false);
-            setRecordingTime(0);
-            
-            stream.getTracks().forEach(track => track.stop());
-
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            
-            setUploading(true);
-            try {
-                const audioDataUri = await blobToBase64(audioBlob);
-                const { audioURL } = await processAudio({ audioDataUri });
-                
-                if (!chatData) return;
-
-                const messageData = {
-                    type: 'audio' as const,
-                    audioURL,
-                    senderId: currentUser.uid,
-                    timestamp: serverTimestamp(),
-                    readBy: [currentUser.uid],
-                    deletedFor: [],
-                };
-                await addMessageToChat(messageData);
-            } catch (error) {
-                console.error("Error processing audio:", error);
-            } finally {
-                setUploading(false);
-            }
-        };
-        
-        mediaRecorder.start();
-      } catch (error) {
-        console.error("Error accessing microphone:", error);
-      }
-    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -743,57 +586,38 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
             {uploading && <Progress value={undefined} className="mb-2 h-1" />}
-            {isRecording ? (
-                <div className="flex items-center gap-2">
-                    <Button onClick={handleToggleRecording} size="icon" variant="destructive">
-                        <StopCircle className="h-5 w-5" />
-                    </Button>
-                    <div className="flex-1 text-center text-muted-foreground">
-                        Recording... ({Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')})
-                    </div>
-                </div>
-            ) : (
-                <form
-                    onSubmit={handleSendMessage}
-                    className="flex items-center gap-2"
-                >
-                    <>
-                        <Input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleFileChange}
-                          className="hidden"
-                          disabled={uploading || isRecording}
-                        />
-                        <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading || isRecording}>
-                            <Paperclip className="h-5 w-5" />
-                        </Button>
-                    </>
+            <form
+                onSubmit={handleSendMessage}
+                className="flex items-center gap-2"
+            >
+                <Input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="hidden"
+                  disabled={uploading}
+                />
+                <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
+                    <Paperclip className="h-5 w-5" />
+                </Button>
 
-                    <Input
-                        value={newMessage}
-                        onChange={(e) => {
-                            setNewMessage(e.target.value);
-                        }}
-                        placeholder={'Type a message...'}
-                        autoComplete="off"
-                        disabled={uploading || isRecording}
-                    />
-                    {newMessage.trim() ? (
-                        <Button
-                            type="submit"
-                            size="icon"
-                            disabled={uploading || isRecording}
-                        >
-                            <Send className="h-5 w-5" />
-                        </Button>
-                    ) : (
-                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost" disabled={uploading || isRecording}>
-                            <Mic className="h-5 w-5" />
-                        </Button>
-                    )}
-                </form>
-            )}
+                <Input
+                    value={newMessage}
+                    onChange={(e) => {
+                        setNewMessage(e.target.value);
+                    }}
+                    placeholder={'Type a message...'}
+                    autoComplete="off"
+                    disabled={uploading}
+                />
+                <Button
+                    type="submit"
+                    size="icon"
+                    disabled={uploading || !newMessage.trim()}
+                >
+                    <Send className="h-5 w-5" />
+                </Button>
+            </form>
             </div>
         </>
       ) : (

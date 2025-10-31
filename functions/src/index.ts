@@ -35,8 +35,6 @@ exports.sendChatNotification = functions.firestore
         messageText = 'Sent an image';
     } else if (message.type === 'file') {
         messageText = 'Sent a file';
-    } else if (message.type === 'audio') {
-        messageText = 'Sent a voice message';
     }
 
 

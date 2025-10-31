@@ -1,4 +1,3 @@
-
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -24,8 +23,7 @@ export interface Message {
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
-  type: 'text' | 'audio' | 'image' | 'file';
-  audioURL?: string;
+  type: 'text' | 'image' | 'file';
   imageURL?: string;
   fileURL?: string;
   fileName?: string;
@@ -59,5 +57,3 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
-
-    
