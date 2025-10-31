@@ -26,7 +26,8 @@ async function searchYouTube(query: string): Promise<YouTubeVideo[]> {
         return await response.json();
     } catch (error) {
         console.error('Could not fetch YouTube videos:', error);
-        return [];
+        // Re-throw the error to be handled by the component
+        throw error;
     }
 }
 
@@ -83,25 +84,23 @@ export default function YoutubeBrowserPage() {
             startTransition(async () => {
                 try {
                     const videoData = await searchYouTube(debouncedSearchQuery);
-                    if (videoData.length === 0 && debouncedSearchQuery) {
-                       // Check if it's an API key issue
-                        const res = await fetch(`/api/youtube?q=test`);
-                        if (res.status === 500) {
-                            const text = await res.text();
-                            if (text.includes('API key')) {
-                                setError('YouTube API key is not configured correctly. Please add it to your .env file.');
-                                return;
-                            }
-                        }
-                    }
                     setVideos(videoData);
                 } catch (e: any) {
-                    setError(e.message || 'Failed to fetch videos.');
+                    if (e.message?.includes('YouTube API key is not configured')) {
+                        setError('The YouTube API key is missing. Please add `YOUTUBE_API_KEY=...` to your .env file.');
+                    } else {
+                        setError(e.message || 'Failed to fetch videos.');
+                    }
+                    setVideos([]);
                 }
             });
         };
 
-        fetchVideos();
+        if(debouncedSearchQuery) {
+            fetchVideos();
+        } else {
+            setVideos([]);
+        }
     }, [debouncedSearchQuery]);
 
     const renderContent = () => {
@@ -114,7 +113,7 @@ export default function YoutubeBrowserPage() {
                 <div className="p-4 col-span-full">
                     <Alert variant="destructive">
                         <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Error</AlertTitle>
+                        <AlertTitle>Configuration Error</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 </div>
