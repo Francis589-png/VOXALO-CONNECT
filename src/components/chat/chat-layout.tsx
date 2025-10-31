@@ -78,8 +78,8 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           isMobile && selectedChat && "hidden"
       )}>
         <div className="flex items-center justify-between border-b p-4">
-          <div className="flex items-center gap-2">
-            <Icons.logo className="h-8 w-8 text-primary" />
+          <div className="flex items-center gap-2 group">
+            <Icons.logo className="h-8 w-8 text-primary transition-transform duration-300 group-hover:scale-110" />
             <h1 className="text-xl font-bold">VoxaLo</h1>
           </div>
           <DropdownMenu>

@@ -24,6 +24,9 @@
     --input: 240 5.9% 90%;
     --ring: 262 84% 57%;
     --radius: 0.75rem;
+
+    --gradient-stop-1: 262 84% 57%;
+    --gradient-stop-2: 217 91% 60%;
   }
   .dark {
     --background: 228 9% 12%;
@@ -45,6 +48,9 @@
     --border: 228 9% 25%;
     --input: 228 9% 25%;
     --ring: 262 84% 57%;
+
+    --gradient-stop-1: 262 84% 57%;
+    --gradient-stop-2: 217 91% 60%;
   }
 }
 
@@ -54,6 +60,19 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+  }
+}
+
+@layer utilities {
+  @keyframes animated-gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animated-gradient {
+    background-image: linear-gradient(to right, hsl(var(--gradient-stop-1)), hsl(var(--gradient-stop-2)), hsl(var(--gradient-stop-1)));
+    background-size: 200% auto;
+    animation: animated-gradient 3s ease-in-out infinite;
   }
 }
 
