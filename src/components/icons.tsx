@@ -61,4 +61,27 @@ export const Icons = {
       </g>
     </svg>
   ),
+  jttLogo: (props: LucideProps) => (
+    <svg
+      {...props}
+      viewBox="0 0 200 60"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="jtt-grad" x1="0" y1="0" x2="0" y2="60">
+          <stop stopColor="hsl(var(--primary))" offset="0%" />
+          <stop stopColor="hsl(var(--primary) / 0.8)" offset="100%" />
+        </linearGradient>
+        <filter id="jtt-shadow" x="-10%" y="-10%" width="120%" height="130%">
+          <feDropShadow dx="2" dy="4" stdDeviation="3" floodColor="hsl(var(--primary) / 0.3)" />
+        </filter>
+      </defs>
+      <g filter="url(#jtt-shadow)">
+        <text fill="url(#jtt-grad)" fontFamily="sans-serif" fontSize="50" fontWeight="bold" letterSpacing="2">
+          <tspan x="20" y="45">JTT</tspan>
+        </text>
+      </g>
+    </svg>
+  ),
 };

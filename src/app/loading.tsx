@@ -12,7 +12,10 @@ export default function Loading() {
           <h1 className="text-3xl font-bold tracking-tight">
             VoxaLo Connect
           </h1>
-          <p className="text-sm text-muted-foreground">from JTT</p>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-muted-foreground">from</p>
+            <Icons.jttLogo className="h-8 w-auto text-primary" />
+          </div>
         </div>
       </div>
     </div>
