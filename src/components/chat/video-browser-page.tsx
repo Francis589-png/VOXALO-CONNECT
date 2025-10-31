@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useTransition } from 'react';
-import type { PexelsVideo, ArchiveVideo } from '@/types';
+import type { ArchiveVideo } from '@/types';
 import { ScrollArea } from '../ui/scroll-area';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -11,50 +11,25 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertTriangle, Video, Search as SearchIcon } from 'lucide-react';
 import { Input } from '../ui/input';
 import { useDebounce } from '@/hooks/use-debounce';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Card, CardContent } from '../ui/card';
 
-type VideoSource = 'pexels' | 'archive';
-
-async function searchVideos(query: string, source: VideoSource): Promise<any[]> {
+async function searchVideos(query: string): Promise<any[]> {
     if (!query) return [];
     try {
-        const response = await fetch(`/api/${source}?q=${encodeURIComponent(query)}`);
+        const response = await fetch(`/api/archive?q=${encodeURIComponent(query)}`);
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
         }
         return await response.json();
     } catch (error) {
-        console.error(`Could not fetch videos from ${source}:`, error);
+        console.error(`Could not fetch videos from Internet Archive:`, error);
         throw error;
     }
 }
 
-function PexelsVideoCard({ video }: { video: PexelsVideo }) {
-    const videoFile = video.video_files.find(f => f.quality === 'hd') || video.video_files[0];
-    
-    return (
-        <Link href={`/watch/${encodeURIComponent(videoFile.link)}`} className='w-full group'>
-            <div className='relative rounded-lg overflow-hidden aspect-video bg-black'>
-                <Image 
-                    src={video.image}
-                    alt={video.user.name}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className='absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors' />
-                <div className='absolute bottom-2 left-2 text-white'>
-                    <p className='text-sm font-semibold'>{video.user.name}</p>
-                    <p className='text-xs opacity-80'>{Math.round(video.duration)}s</p>
-                </div>
-            </div>
-        </Link>
-    );
-}
-
 function ArchiveVideoCard({ video }: { video: ArchiveVideo }) {
-    const videoUrl = `https://archive.org/download/${video.identifier}/${video.identifier}.mp4`;
+    const videoUrl = `https://archive.org/details/${video.identifier}`;
     const imageUrl = `https://archive.org/download/${video.identifier}/${video.identifier}.thumbs/${video.identifier}_000001.jpg`;
 
     return (
@@ -86,10 +61,9 @@ function VideoCardSkeleton() {
 
 export default function VideoBrowserPage() {
     const [videos, setVideos] = useState<any[]>([]);
-    const [searchQuery, setSearchQuery] = useState('Nature');
+    const [searchQuery, setSearchQuery] = useState('Classic Movies');
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
-    const [source, setSource] = useState<VideoSource>('pexels');
 
     const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
@@ -102,21 +76,17 @@ export default function VideoBrowserPage() {
             setError(null);
             startTransition(async () => {
                 try {
-                    const videoData = await searchVideos(debouncedSearchQuery, source);
+                    const videoData = await searchVideos(debouncedSearchQuery);
                     setVideos(videoData);
                 } catch (e: any) {
-                     if (e.message?.includes('Pexels API key is not configured')) {
-                        setError('The Pexels API key is missing. Please add `PEXELS_API_KEY=...` to your .env file.');
-                    } else {
-                        setError(e.message || 'Failed to fetch videos.');
-                    }
+                    setError(e.message || 'Failed to fetch videos.');
                     setVideos([]);
                 }
             });
         };
 
         fetchVideos();
-    }, [debouncedSearchQuery, source]);
+    }, [debouncedSearchQuery]);
 
     const renderContent = () => {
         if (isPending) {
@@ -148,22 +118,16 @@ export default function VideoBrowserPage() {
                 <div className="p-4 col-span-full text-center text-muted-foreground h-full flex flex-col items-center justify-center">
                     <Video className="h-16 w-16 mb-4" />
                     <h3 className="text-lg font-semibold">Search for Videos</h3>
-                    <p>Find free stock videos to watch and share.</p>
+                    <p>Find free movies and videos from the Internet Archive.</p>
                 </div>
             )
         }
         
-        const cardGridClass = source === 'pexels' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2 md:grid-cols-3';
-
         return (
-            <div className={`p-4 grid ${cardGridClass} gap-4`}>
-                {videos.map((video, index) => {
-                    if (source === 'pexels') {
-                        return <PexelsVideoCard key={video.id} video={video as PexelsVideo} />;
-                    } else {
-                        return <ArchiveVideoCard key={`${video.identifier}-${index}`} video={video as ArchiveVideo} />;
-                    }
-                })}
+            <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                {videos.map((video, index) => (
+                    <ArchiveVideoCard key={`${video.identifier}-${index}`} video={video as ArchiveVideo} />
+                ))}
             </div>
         );
     };
@@ -171,19 +135,10 @@ export default function VideoBrowserPage() {
     return (
         <div className="flex flex-col h-full">
             <div className='p-4 border-b space-y-4'>
-                <Select value={source} onValueChange={(value) => setSource(value as VideoSource)}>
-                    <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a video source" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="pexels">Pexels</SelectItem>
-                        <SelectItem value="archive">Internet Archive</SelectItem>
-                    </SelectContent>
-                </Select>
                  <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder={`Search ${source === 'pexels' ? 'Pexels' : 'Internet Archive'}...`}
+                        placeholder="Search Internet Archive..."
                         className="pl-9"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}

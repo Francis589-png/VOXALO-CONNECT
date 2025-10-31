@@ -97,27 +97,6 @@ export interface GameMonetizeGame {
 }
 
 // --- Video Types ---
-export interface PexelsVideo {
-  id: number;
-  width: number;
-  height: number;
-  duration: number;
-  image: string; // URL to a picture
-  user: {
-    id: number;
-    name: string;
-    url: string;
-  };
-  video_files: {
-    id: number;
-    quality: 'sd' | 'hd';
-    file_type: string;
-    width: number;
-    height: number;
-    link: string;
-  }[];
-}
-
 export interface ArchiveVideo {
   identifier: string;
   title: string;
