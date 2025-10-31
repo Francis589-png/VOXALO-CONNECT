@@ -28,7 +28,7 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json(response.data);
+    return NextResponse.json(response.data.videos);
   } catch (error: any) {
     console.error('Error fetching from Pexels API:', error.response?.data || error.message);
     return new NextResponse('Internal Server Error', { status: 500 });
