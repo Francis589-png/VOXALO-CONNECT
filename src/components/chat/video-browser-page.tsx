@@ -157,11 +157,11 @@ export default function VideoBrowserPage() {
 
         return (
             <div className={`p-4 grid ${cardGridClass} gap-4`}>
-                {videos.map((video) => {
+                {videos.map((video, index) => {
                     if (source === 'pexels') {
                         return <PexelsVideoCard key={video.id} video={video as PexelsVideo} />;
                     } else {
-                        return <ArchiveVideoCard key={video.identifier} video={video as ArchiveVideo} />;
+                        return <ArchiveVideoCard key={`${video.identifier}-${index}`} video={video as ArchiveVideo} />;
                     }
                 })}
             </div>
