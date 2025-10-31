@@ -19,7 +19,7 @@ export async function uploadFile(file: File): Promise<string> {
             data,
             {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
+                    'Content-Type': `multipart/form-data; boundary=${(data as any)._boundary}`,
                     Authorization: `Bearer ${PINATA_JWT}`,
                 },
             }
