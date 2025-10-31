@@ -23,7 +23,11 @@ export async function GET(request: Request) {
       },
     });
 
-    return NextResponse.json(response.data.response.docs);
+    return NextResponse.json(response.data.response.docs, {
+        headers: {
+            'Cache-Control': 's-maxage=3600, stale-while-revalidate',
+        }
+    });
   } catch (error: any) {
     console.error('Error fetching from Internet Archive API:', error.response?.data || error.message);
     return new NextResponse('Internal Server Error', { status: 500 });
