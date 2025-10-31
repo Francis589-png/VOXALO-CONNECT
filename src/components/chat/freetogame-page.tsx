@@ -14,7 +14,7 @@ import { AlertTriangle } from 'lucide-react';
 
 async function getFreeToGameGames(): Promise<Game[]> {
     try {
-        const response = await fetch('https://www.freetogame.com/api/games');
+        const response = await fetch('/api/games');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -110,6 +110,20 @@ export default function FreeToGamePage() {
                     <AlertTitle>Error</AlertTitle>
                     <AlertDescription>
                         Could not load free games. Please check your connection and try again.
+                    </AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
+    if (!loading && games.length === 0) {
+        return (
+             <div className="p-4">
+                <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>No Games Found</AlertTitle>
+                    <AlertDescription>
+                        We couldn&apos;t find any free games at the moment. Please try again later.
                     </AlertDescription>
                 </Alert>
             </div>
