@@ -28,8 +28,6 @@ import {
   Paperclip,
   FileIcon,
   Bot,
-  Video,
-  Phone,
   ArrowLeft,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -55,9 +53,6 @@ import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import { kingAjChat } from '@/ai/flows/king-aj-flow';
 import { Icons } from '../icons';
-import { Skeleton } from '../ui/skeleton';
-import JitsiMeet from './jitsi-meet';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -283,8 +278,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [inCall, setInCall] = useState(false);
-  const [incomingCall, setIncomingCall] = useState(false);
   
   const isKingAjChat = selectedChat?.id === 'king-aj-bot';
 
@@ -304,12 +297,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         if (docSnap.exists()) {
           const data = { id: docSnap.id, ...docSnap.data() } as Chat;
           setChatData(data);
-          if (data.activeCall && data.activeCall.initiatorId !== currentUser.uid) {
-            setIncomingCall(true);
-          } else if (!data.activeCall) {
-            setInCall(false);
-            setIncomingCall(false);
-          }
         }
       });
       return () => unsubscribe();
@@ -393,33 +380,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
       }, 100);
     }
   }, [messages, selectedChat]);
-
-  const handleStartCall = async () => {
-    if (!chatId) return;
-    setInCall(true);
-    const chatRef = doc(db, 'chats', chatId);
-    await updateDoc(chatRef, {
-      activeCall: {
-        roomId: chatId,
-        initiatorId: currentUser.uid,
-        startedAt: serverTimestamp(),
-      }
-    });
-  };
-
-  const handleEndCall = async () => {
-    if (!chatId) return;
-    setInCall(false);
-    const chatRef = doc(db, 'chats', chatId);
-    await updateDoc(chatRef, {
-      activeCall: null
-    });
-  };
-
-  const handleJoinCall = () => {
-    setInCall(true);
-    setIncomingCall(false);
-  }
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
     if (!chatId) return;
@@ -464,15 +424,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         type: 'text',
       };
       setMessages(prev => [...prev, userMessage]);
-
-      const botMessagePlaceholder: Message = {
-        id: `bot-placeholder-${Date.now()}`,
-        senderId: 'king-aj-bot',
-        timestamp: new Date(),
-        type: 'text',
-        text: '...',
-      };
-      setMessages(prev => [...prev, botMessagePlaceholder]);
       
       const history = messages.map(m => ({
         role: m.senderId === currentUser.uid ? 'user' : 'model',
@@ -489,7 +440,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         type: 'text',
       };
       
-      setMessages(prev => prev.map(m => m.id === botMessagePlaceholder.id ? botMessage : m));
+      setMessages(prev => [...prev, botMessage]);
     } else {
         const messageData = {
             type: 'text' as const,
@@ -695,23 +646,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
 
   return (
     <div className="flex h-full max-h-screen flex-col relative w-full">
-      <AlertDialog open={incomingCall} onOpenChange={setIncomingCall}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Incoming Call</AlertDialogTitle>
-            <AlertDialogDescription>
-              {chatData?.userInfos?.find(u => u.uid === chatData?.activeCall?.initiatorId)?.displayName} is calling.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button variant="outline" onClick={() => setIncomingCall(false)}>Decline</Button>
-            <AlertDialogAction asChild>
-              <Button onClick={handleJoinCall}>Accept</Button>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {currentUserData?.chatWallpaper && !isKingAjChat && (
         <Image
             src={currentUserData.chatWallpaper}
@@ -749,11 +683,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
           <h2 className="text-lg font-semibold">{getChatName()}</h2>
           <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
         </div>
-        {!isKingAjChat && (
-             <Button size="icon" variant="ghost" onClick={inCall ? handleEndCall : handleStartCall}>
-                {inCall ? <Phone className="h-5 w-5 text-red-500" /> : <Video className="h-5 w-5" />}
-             </Button>
-        )}
       </div>
       {canChat ? (
         <>
@@ -762,19 +691,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
                 const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
-
-                if(message.text === '...') {
-                    return (
-                        <div key={message.id} className='flex items-start gap-2'>
-                             <Avatar className="h-8 w-8">
-                                <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
-                            </Avatar>
-                            <div className='bg-card p-3.5 rounded-lg rounded-tl-none'>
-                                <Skeleton className="h-4 w-12" />
-                            </div>
-                        </div>
-                    )
-                }
 
                 return (
                   <MessageBubble
@@ -868,15 +784,6 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
           </div>
         </div>
       )}
-      <div style={{ display: inCall && chatId ? 'block' : 'none' }}>
-        {chatId && (
-          <JitsiMeet
-              roomName={chatId}
-              displayName={currentUser.displayName || 'User'}
-              onClose={handleEndCall}
-          />
-        )}
-      </div>
     </div>
   );
 }
