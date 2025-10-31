@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { onMessage } from 'firebase/messaging';
+import { onMessage, type MessagePayload } from 'firebase/messaging';
 import { onMessageListener } from '@/lib/firebase-messaging';
 import { useToast } from '@/hooks/use-toast';
-import type { MessagePayload } from 'firebase/messaging';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { db } from '@/lib/firebase';
-import { getDoc, doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export default function FirebaseMessagingProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
@@ -33,14 +32,15 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && user) {
+        
         const handleMessage = (payload: MessagePayload) => {
-            if (payload && payload.notification) {
-                const { title, body } = payload.notification;
-                const chatId = payload.data?.chatId;
+            console.log('Foreground message received.', payload);
+            if (payload && payload.data) {
+                const { title, body, chatId } = payload.data;
                 const currentChatId = searchParams.get('chatId');
 
                 // Don't show notification if user is already in the chat
-                if (pathname === '/' && chatId === currentChatId) {
+                if (pathname === '/' && chatId === currentChatId && document.hasFocus()) {
                     return;
                 }
 
@@ -65,7 +65,7 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
         };
         
         // Correctly set up the listener
-        const unsubscribe = onMessage(onMessageListener(), handleMessage);
+        const unsubscribe = onMessageListener(handleMessage);
 
         // Cleanup the listener when the component unmounts
         return () => {

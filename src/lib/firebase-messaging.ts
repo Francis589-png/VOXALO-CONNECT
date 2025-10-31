@@ -1,6 +1,6 @@
 'use client';
 
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, type MessagePayload } from 'firebase/messaging';
 import { doc, updateDoc } from 'firebase/firestore';
 import { app, db } from './firebase';
 
@@ -16,13 +16,14 @@ export const requestNotificationPermission = async (userId: string) => {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         console.log('Notification permission granted.');
+        // IMPORTANT: Replace with your actual VAPID key from the Firebase console.
+        // This key is safe to be public.
         const currentToken = await getToken(messaging, {
-            // Replace with your actual VAPID key
-            vapidKey: 'BPE1_m9i8tu_D6vj8vso-p3c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23',
+            vapidKey: 'YOUR_VAPID_KEY_FROM_FIREBASE',
         });
         if (currentToken) {
             await updateDoc(doc(db, 'users', userId), {
-            fcmToken: currentToken,
+              fcmToken: currentToken,
             });
         } else {
             console.log('No registration token available. Request permission to generate one.');
@@ -35,11 +36,10 @@ export const requestNotificationPermission = async (userId: string) => {
   }
 };
 
-export const onMessageListener = () => {
+
+export const onMessageListener = (callback: (payload: MessagePayload) => void) => {
     const messaging = getMessaging(app);
-    return new Promise((resolve) => {
-        onMessage(messaging, (payload) => {
-            resolve(payload);
-        });
-  });
+    return onMessage(messaging, (payload) => {
+        callback(payload);
+    });
 }
