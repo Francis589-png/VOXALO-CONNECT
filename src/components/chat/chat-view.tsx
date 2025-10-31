@@ -52,6 +52,7 @@ import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import { kingAjChat } from '@/ai/flows/king-aj-flow';
 import { Icons } from '../icons';
+import { Skeleton } from '../ui/skeleton';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -113,6 +114,14 @@ function MessageBubble({
     : '';
 
   const renderContent = () => {
+    if (message.isLoading) {
+      return (
+        <div className="flex items-center space-x-2">
+          <Skeleton className="h-4 w-4 rounded-full" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+      )
+    }
     if (message.type === 'image' && message.imageURL) {
         return (
             <Image 
@@ -413,31 +422,40 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     setNewMessage('');
 
     if (isKingAjChat) {
-        const userMessage: Message = {
-            id: `user-${Date.now()}`,
-            text,
-            senderId: currentUser.uid,
-            timestamp: new Date(),
-            type: 'text',
-        };
-        setMessages(prev => [...prev, userMessage]);
-        
-        const history = messages.map(m => ({
-          role: m.senderId === currentUser.uid ? 'user' : 'model',
-          content: m.text || '',
-        }));
+      const userMessage: Message = {
+        id: `user-${Date.now()}`,
+        text,
+        senderId: currentUser.uid,
+        timestamp: new Date(),
+        type: 'text',
+      };
 
-        const botResponseText = await kingAjChat({ history, message: text });
-        
-        const botMessage: Message = {
-            id: `bot-${Date.now()}`,
-            text: botResponseText,
-            senderId: 'king-aj-bot',
-            timestamp: new Date(),
-            type: 'text',
-        };
-        setMessages(prev => [...prev, botMessage]);
+      const loadingMessage: Message = {
+        id: `bot-loading-${Date.now()}`,
+        senderId: 'king-aj-bot',
+        timestamp: new Date(),
+        type: 'text',
+        isLoading: true,
+      };
 
+      setMessages(prev => [...prev, userMessage, loadingMessage]);
+
+      const history = messages.map(m => ({
+        role: m.senderId === currentUser.uid ? 'user' : 'model',
+        content: m.text || '',
+      }));
+
+      const botResponseText = await kingAjChat({ history, message: text });
+
+      const botMessage: Message = {
+        id: `bot-${Date.now()}`,
+        text: botResponseText,
+        senderId: 'king-aj-bot',
+        timestamp: new Date(),
+        type: 'text',
+      };
+
+      setMessages(prev => prev.filter(m => !m.isLoading).concat(botMessage));
     } else {
         const messageData = {
             type: 'text' as const,
