@@ -1,4 +1,3 @@
-
 'use client';
 import {
   addDoc,
@@ -30,6 +29,7 @@ import {
   FileIcon,
   Bot,
   Video,
+  Phone,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -56,6 +56,7 @@ import { kingAjChat } from '@/ai/flows/king-aj-flow';
 import { Icons } from '../icons';
 import { Skeleton } from '../ui/skeleton';
 import JitsiMeet from './jitsi-meet';
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -281,6 +282,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [inCall, setInCall] = useState(false);
+  const [incomingCall, setIncomingCall] = useState(false);
   
   const isKingAjChat = selectedChat?.id === 'king-aj-bot';
 
@@ -298,12 +300,19 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       const chatDocRef = doc(db, 'chats', selectedChat.id);
       const unsubscribe = onSnapshot(chatDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          setChatData({ id: docSnap.id, ...docSnap.data() } as Chat);
+          const data = { id: docSnap.id, ...docSnap.data() } as Chat;
+          setChatData(data);
+          if (data.activeCall && data.activeCall.initiatorId !== currentUser.uid) {
+            setIncomingCall(true);
+          } else if (!data.activeCall) {
+            setInCall(false);
+            setIncomingCall(false);
+          }
         }
       });
       return () => unsubscribe();
     }
-  }, [selectedChat]);
+  }, [selectedChat, currentUser.uid]);
 
 
   useEffect(() => {
@@ -382,12 +391,39 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       }, 100);
     }
   }, [messages, selectedChat]);
+
+  const handleStartCall = async () => {
+    if (!chatId) return;
+    setInCall(true);
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+      activeCall: {
+        roomId: chatId,
+        initiatorId: currentUser.uid,
+        startedAt: serverTimestamp(),
+      }
+    });
+  };
+
+  const handleEndCall = async () => {
+    if (!chatId) return;
+    setInCall(false);
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+      activeCall: null
+    });
+  };
+
+  const handleJoinCall = () => {
+    setInCall(true);
+    setIncomingCall(false);
+  }
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const docRef = await addDoc(messagesRef, messageData);
+    await addDoc(messagesRef, messageData);
     
     const chatRef = doc(db, 'chats', chatId);
     
@@ -657,6 +693,23 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
 
   return (
     <div className="flex h-full max-h-screen flex-col relative">
+      <AlertDialog open={incomingCall} onOpenChange={setIncomingCall}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Incoming Call</AlertDialogTitle>
+            <AlertDialogDescription>
+              {chatData?.userInfos?.find(u => u.uid === chatData?.activeCall?.initiatorId)?.displayName} is calling.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setIncomingCall(false)}>Decline</Button>
+            <AlertDialogAction asChild>
+              <Button onClick={handleJoinCall}>Accept</Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {currentUserData?.chatWallpaper && !isKingAjChat && (
         <Image
             src={currentUserData.chatWallpaper}
@@ -690,9 +743,9 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
           <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
         </div>
         {!isKingAjChat && (
-            <Button size="icon" variant="ghost" onClick={() => setInCall(true)}>
-                <Video className="h-5 w-5" />
-            </Button>
+             <Button size="icon" variant="ghost" onClick={inCall ? handleEndCall : handleStartCall}>
+                {inCall ? <Phone className="h-5 w-5 text-red-500" /> : <Video className="h-5 w-5" />}
+             </Button>
         )}
       </div>
       {canChat ? (
@@ -813,7 +866,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
           <JitsiMeet
               roomName={chatId}
               displayName={currentUser.displayName || 'User'}
-              onClose={() => setInCall(false)}
+              onClose={handleEndCall}
           />
         )}
       </div>

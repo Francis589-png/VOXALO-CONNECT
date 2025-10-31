@@ -41,6 +41,11 @@ export interface Chat {
   name?: string;
   photoURL?: string;
   createdAt?: Timestamp;
+  activeCall?: {
+    roomId: string;
+    initiatorId: string;
+    startedAt: Timestamp;
+  } | null;
 }
 
 export interface FriendRequest {
@@ -59,3 +64,5 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
+
+    
