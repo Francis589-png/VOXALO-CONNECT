@@ -5,8 +5,9 @@ const PINATA_JWT = process.env.NEXT_PUBLIC_PINATA_JWT;
 
 export async function uploadFile(file: File): Promise<string> {
     if (!PINATA_GATEWAY_URL || !PINATA_JWT) {
+        console.error('Pinata environment variables are not set up correctly.');
         throw new Error(
-        'Pinata environment variables are not set up correctly.'
+        'File upload is not configured on the server.'
         );
     }
 
@@ -24,7 +25,8 @@ export async function uploadFile(file: File): Promise<string> {
                 },
             }
         );
-        return `${PINATA_GATEWAY_URL}/ipfs/${res.data.IpfsHash}`;
+        const gateway = PINATA_GATEWAY_URL.startsWith('http') ? PINATA_GATEWAY_URL : `https://${PINATA_GATEWAY_URL}`;
+        return `${gateway}/ipfs/${res.data.IpfsHash}`;
     } catch (error) {
         console.error('Error uploading file to Pinata:', error);
         throw new Error(`Error uploading file to Pinata: ${error}`);
