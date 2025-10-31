@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -29,7 +30,6 @@ export interface Message {
   fileURL?: string;
   fileName?: string;
   fileSize?: number;
-  isLoading?: boolean;
 }
 
 export interface Chat {

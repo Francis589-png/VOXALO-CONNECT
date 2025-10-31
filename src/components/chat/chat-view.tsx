@@ -115,14 +115,6 @@ function MessageBubble({
     : '';
 
   const renderContent = () => {
-    if (message.isLoading) {
-      return (
-        <div className="flex items-center space-x-2">
-          <Skeleton className="h-4 w-4 rounded-full" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-      )
-    }
     if (message.type === 'image' && message.imageURL) {
         return (
             <Image 
@@ -174,7 +166,7 @@ function MessageBubble({
             <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
         </Avatar>
        )}
-       {chat.id === 'king-aj-bot' && !isOwnMessage && !message.isLoading && (
+       {chat.id === 'king-aj-bot' && !isOwnMessage && (
         <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
         </Avatar>
@@ -204,7 +196,7 @@ function MessageBubble({
                 </div>
             )}
         </div>
-        {!message.isLoading && <div
+        <div
           className={cn(
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
@@ -220,7 +212,7 @@ function MessageBubble({
             readBy={message.readBy}
             chat={chat}
           /> }
-        </div>}
+        </div>
       </div>
       <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
         <Popover>
@@ -431,15 +423,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         type: 'text',
       };
 
-      const loadingMessage: Message = {
-        id: `bot-loading-${Date.now()}`,
-        senderId: 'king-aj-bot',
-        timestamp: new Date(),
-        type: 'text',
-        isLoading: true,
-      };
-
-      setMessages(prev => [...prev, userMessage, loadingMessage]);
+      setMessages(prev => [...prev, userMessage]);
 
       const history = messages.map(m => ({
         role: m.senderId === currentUser.uid ? 'user' : 'model',
@@ -456,7 +440,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         type: 'text',
       };
 
-      setMessages(prev => prev.filter(m => !m.isLoading).concat(botMessage));
+      setMessages(prev => [...prev, botMessage]);
     } else {
         const messageData = {
             type: 'text' as const,
