@@ -6,6 +6,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -21,7 +22,8 @@ async function getGames(source: GameSource): Promise<any[]> {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
-        return data;
+        // The gamemonetize API returns an object with a games property, freetogame returns an array
+        return source === 'gamemonetize' ? data : data;
     } catch (error) {
         console.error(`Could not fetch games from ${source}:`, error);
         return [];
@@ -61,13 +63,13 @@ function GameCard({ game, source }: { game: Game | GameMonetizeGame; source: Gam
                             <Badge variant="outline">{g.platform}</Badge>
                         </>
                     ) : (
-                        <Badge variant="secondary">{g.category}</Badge>
+                        g.category && <Badge variant="secondary">{g.category}</Badge>
                     )}
                  </div>
                  <Button asChild className='w-full'>
-                    <a href={gameUrl} target="_blank" rel="noopener noreferrer">
+                    <Link href={`/play/${encodeURIComponent(gameUrl)}`}>
                         Play Now
-                    </a>
+                    </Link>
                 </Button>
             </CardFooter>
         </Card>
@@ -170,7 +172,7 @@ export default function GamesBrowserPage() {
                 </Select>
             </div>
             <ScrollArea className="flex-1">
-                <div className="p-4 grid grid-cols-1 gap-4">
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {renderContent()}
                 </div>
             </ScrollArea>
