@@ -98,9 +98,7 @@ function ReadReceipt({
       ? 'text-green-500' 
       : partiallyRead 
       ? 'text-blue-500' 
-      : sent && (readBy || []).length > 0
-      ? 'text-red-500'
-      : 'text-muted-foreground';
+      : 'text-red-500';
     
     const readers = userInfos.filter(u => otherUsersWhoRead.includes(u.uid));
     return (
@@ -509,13 +507,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   }, [messages, selectedChat, searchQuery]);
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [newMessage]);
-  
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
     
@@ -866,7 +857,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
                 <Textarea
                     ref={textareaRef}
-                    rows={1}
                     value={newMessage}
                     onChange={(e) => {
                         setNewMessage(e.target.value);
@@ -880,7 +870,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     placeholder={'Type a message...'}
                     autoComplete="off"
                     disabled={uploading}
-                    className="bg-background/80 max-h-32 resize-none"
+                    className="bg-background/80"
                 />
                 <Button
                     type="submit"
@@ -916,3 +906,4 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     
 
     
+
