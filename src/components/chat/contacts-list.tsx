@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUnreadCount } from '@/hooks/use-unread-count';
 import { getChatId } from '@/lib/utils';
 import { Badge } from '../ui/badge';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
