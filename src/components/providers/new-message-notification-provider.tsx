@@ -1,15 +1,11 @@
 
 'use client';
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useCallback, ReactNode } from 'react';
 import type { User, Message } from '@/types';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-
-interface NotificationData {
-  sender: User;
-  message: Message;
-}
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '../ui/button';
+import { X } from 'lucide-react';
 
 interface NewMessageNotificationContextType {
   showNotification: (sender: User, message: Message) => void;
@@ -18,15 +14,7 @@ interface NewMessageNotificationContextType {
 const NewMessageNotificationContext = createContext<NewMessageNotificationContextType | undefined>(undefined);
 
 export function NewMessageNotificationProvider({ children }: { children: ReactNode }) {
-  const [notification, setNotification] = useState<NotificationData | null>(null);
-
-  const showNotification = useCallback((sender: User, message: Message) => {
-    setNotification({ sender, message });
-  }, []);
-
-  const handleClose = () => {
-    setNotification(null);
-  };
+  const { toast } = useToast();
 
   const getMessagePreview = (message: Message) => {
     switch (message.type) {
@@ -39,29 +27,30 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
     }
   }
 
+  const showNotification = useCallback((sender: User, message: Message) => {
+    toast({
+      description: (
+        <div className="flex items-start gap-3">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={sender.photoURL || undefined} alt={sender.displayName || 'Sender'} />
+            <AvatarFallback>{sender.displayName?.[0]}</AvatarFallback>
+          </Avatar>
+          <div className='flex-1'>
+            <p className="font-bold">{sender.displayName}</p>
+            <p className="text-sm text-muted-foreground break-words">
+              {getMessagePreview(message)}
+            </p>
+          </div>
+        </div>
+      ),
+      className: 'p-4',
+    });
+  }, [toast]);
+
+
   return (
     <NewMessageNotificationContext.Provider value={{ showNotification }}>
       {children}
-      <Dialog open={!!notification} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="sm:max-w-[425px]">
-          {notification && (
-            <div className="flex flex-col items-center text-center p-4">
-              <Avatar className="h-20 w-20 mb-4">
-                <AvatarImage src={notification.sender.photoURL || undefined} alt={notification.sender.displayName || 'Sender'} />
-                <AvatarFallback>{notification.sender.displayName?.[0]}</AvatarFallback>
-              </Avatar>
-              <h3 className="font-bold text-lg">New Message From</h3>
-              <p className="text-xl font-semibold text-primary">{notification.sender.displayName}</p>
-              <div className="mt-4 p-3 bg-muted rounded-lg w-full text-left">
-                <p className="text-sm text-muted-foreground break-words">{getMessagePreview(notification.message)}</p>
-              </div>
-              <Button onClick={handleClose} className="mt-6 w-full">
-                Close
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </NewMessageNotificationContext.Provider>
   );
 }
