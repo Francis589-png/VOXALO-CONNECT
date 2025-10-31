@@ -119,7 +119,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
           <div className='p-4'>
-            <TabsList className="w-full grid grid-cols-4">
+            <TabsList className="w-full grid grid-cols-4 gap-2">
               <TabsTrigger value="contacts">
                 Contacts
               </TabsTrigger>
