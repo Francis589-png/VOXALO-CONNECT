@@ -79,16 +79,17 @@ function ReadReceipt({
   readBy: string[] | undefined;
   chat: Chat;
   userInfos: AppUser[];
+  currentUser: FirebaseUser;
 }) {
   if (!isOwnMessage) return null;
 
   // Filter out the current user from the readBy list and total user list
-  const otherUsersInChat = chat.users.filter(uid => uid !== isOwnMessage);
+  const otherUsersInChat = chat.users.filter(uid => uid !== currentUser.uid);
   const otherUsersWhoRead = readBy?.filter(uid => uid !== currentUser.uid) || [];
 
-  const allRead = otherUsersInChat.every(userId => otherUsersWhoRead.includes(userId));
+  const allRead = otherUsersWhoRead.length > 0 && otherUsersInChat.every(userId => otherUsersWhoRead.includes(userId));
 
-  const ReadIcon = allRead ? CheckCheck : otherUsersWhoRead.length > 0 ? CheckCheck : Check;
+  const ReadIcon = allRead ? CheckCheck : (otherUsersWhoRead.length > 0 || (readBy && readBy.length > 1) ? CheckCheck : Check);
   const iconColor = allRead ? 'text-blue-500' : 'text-muted-foreground';
 
   if (chat.isGroup) {
@@ -307,6 +308,7 @@ function MessageBubble({
             readBy={message.readBy}
             chat={chat}
             userInfos={chat.userInfos}
+            currentUser={currentUser}
           />
         </div>
       </div>
