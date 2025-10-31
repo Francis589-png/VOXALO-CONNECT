@@ -1,9 +1,11 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/providers/auth-provider';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import './globals.css';
+import { NewMessageNotificationProvider } from '@/components/providers/new-message-notification-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -26,7 +28,9 @@ export default function RootLayout({
             enableSystem
         >
             <AuthProvider>
-            {children}
+              <NewMessageNotificationProvider>
+                {children}
+              </NewMessageNotificationProvider>
             </AuthProvider>
             <Toaster />
         </ThemeProvider>

@@ -2,7 +2,7 @@
 "use client";
 
 import { useFriends } from '../providers/friends-provider';
-import type { Chat, User } from '@/types';
+import type { Chat, Message, User } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
@@ -13,6 +13,7 @@ import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
 import { Users, File, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNewMessageNotification } from '../providers/new-message-notification-provider';
 
 interface ContactsListProps {
   selectedChat: Chat | null;
@@ -20,9 +21,24 @@ interface ContactsListProps {
   search: string;
 }
 
-function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User }) {
+function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User, selectedChat: Chat | null }) {
     const unreadCount = useUnreadCount(chat.id, currentUser?.uid);
     const [otherUser, setOtherUser] = useState<User | undefined>();
+    const { showNotification } = useNewMessageNotification();
+
+    useEffect(() => {
+        if (!chat.lastMessage || chat.lastMessage.senderId === currentUser.uid || chat.id === selectedChat?.id) return;
+        
+        const lastMessageTimestamp = (chat.lastMessage.timestamp as any)?.toMillis();
+        const fiveSecondsAgo = Date.now() - 5000;
+
+        if (lastMessageTimestamp > fiveSecondsAgo) {
+            const sender = chat.userInfos.find(u => u.uid === chat.lastMessage?.senderId);
+            if (sender) {
+                 showNotification(sender, chat.lastMessage as Message);
+            }
+        }
+    }, [chat.lastMessage, currentUser.uid, showNotification, chat.id, selectedChat?.id, chat.userInfos]);
 
     useEffect(() => {
         if (chat.isGroup) return;
@@ -51,13 +67,21 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
         const lastMessage = chat.lastMessage;
         if (!lastMessage) return chat.isGroup ? 'Group Chat' : 'No messages yet';
 
+        let prefix = '';
+        if (chat.isGroup && lastMessage.senderId !== currentUser.uid) {
+            const sender = chat.userInfos.find(u => u.uid === lastMessage.senderId);
+            if (sender) {
+                prefix = `${sender.displayName?.split(' ')[0]}: `;
+            }
+        }
+
         switch (lastMessage.type) {
             case 'image':
-                return <div className='flex items-center gap-1.5'><ImageIcon className='h-3 w-3' />Image</div>
+                return <div className='flex items-center gap-1.5'><ImageIcon className='h-3 w-3' />{prefix}Image</div>
             case 'file':
-                return <div className='flex items-center gap-1.5'><File className='h-3 w-3' />File</div>
+                return <div className='flex items-center gap-1.5'><File className='h-3 w-3' />{prefix}File</div>
             default:
-                return lastMessage.text;
+                return `${prefix}${lastMessage.text}`;
         }
     }
 
@@ -163,6 +187,7 @@ export default function ContactsList({
                 isSelected={selectedChat?.id === chat.id}
                 onSelectChat={onSelectChat}
                 currentUser={currentUser as User}
+                selectedChat={selectedChat}
             />
         ))}
         </div>
