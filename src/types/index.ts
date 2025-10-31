@@ -11,6 +11,7 @@ export interface User {
   status?: 'online' | 'offline';
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
+  notificationSounds?: boolean;
   bio?: string;
   theme?: 'light' | 'dark' | 'system';
 }

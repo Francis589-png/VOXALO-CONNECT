@@ -31,6 +31,7 @@ import { uploadFile } from '@/lib/pinata';
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   readReceiptsEnabled: z.boolean(),
+  notificationSounds: z.boolean(),
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
   theme: z.string(),
   photo: z.instanceof(File).optional(),
@@ -45,12 +46,19 @@ export default function ProfilePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  
+  if (typeof window !== 'undefined' && !notificationSoundRef.current) {
+    notificationSoundRef.current = new Audio('/notification.mp3');
+  }
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       displayName: '',
       readReceiptsEnabled: true,
+      notificationSounds: false,
       bio: '',
       theme: 'system',
     },
@@ -67,6 +75,7 @@ export default function ProfilePage() {
           const userData = docSnap.data();
           if (userData) {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
+            form.setValue('notificationSounds', userData.notificationSounds ?? false);
             form.setValue('bio', userData.bio || '');
             form.setValue('theme', userData.theme || 'system');
           }
@@ -110,6 +119,7 @@ export default function ProfilePage() {
         displayName: values.displayName,
         photoURL,
         readReceiptsEnabled: values.readReceiptsEnabled,
+        notificationSounds: values.notificationSounds,
         bio: values.bio,
         theme: values.theme,
       });
@@ -290,6 +300,33 @@ export default function ProfilePage() {
                             </FormItem>
                         )}
                     />
+
+                    <FormField
+                        control={form.control}
+                        name="notificationSounds"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Notification Sounds</FormLabel>
+                                    <FormDescription>
+                                        Play a sound for new message notifications.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={(checked) => {
+                                        field.onChange(checked);
+                                        if (checked && notificationSoundRef.current) {
+                                            notificationSoundRef.current.play().catch(e => console.error("Error playing notification sound:", e));
+                                        }
+                                    }}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
+
 
                     <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Saving...' : 'Save Changes'}

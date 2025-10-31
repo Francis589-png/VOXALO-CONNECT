@@ -1,9 +1,12 @@
 
 'use client';
-import { createContext, useContext, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useCallback, ReactNode, useState, useEffect } from 'react';
 import type { User, Message } from '@/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface NewMessageNotificationContextType {
   showNotification: (sender: User, message: Message) => void;
@@ -13,6 +16,27 @@ const NewMessageNotificationContext = createContext<NewMessageNotificationContex
 
 export function NewMessageNotificationProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    setAudio(new Audio('/notification.mp3'));
+  }, []);
+
+  useEffect(() => {
+    if (user?.uid) {
+      const userDocRef = doc(db, 'users', user.uid);
+      getDoc(userDocRef).then((docSnap) => {
+        if (docSnap.exists() && docSnap.data().notificationSounds) {
+          setSoundEnabled(true);
+        } else {
+          setSoundEnabled(false);
+        }
+      });
+    }
+  }, [user]);
+
 
   const getMessagePreview = (message: Message) => {
     switch (message.type) {
@@ -26,6 +50,12 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
   }
 
   const showNotification = useCallback((sender: User, message: Message) => {
+    if (soundEnabled && audio) {
+        audio.play().catch(error => {
+          console.error("Failed to play notification sound:", error);
+        });
+    }
+
     toast({
       description: (
         <div className="flex items-start gap-3">
@@ -43,7 +73,7 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
       ),
       className: 'p-4',
     });
-  }, [toast]);
+  }, [toast, audio, soundEnabled]);
 
 
   return (
