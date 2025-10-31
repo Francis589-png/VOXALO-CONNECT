@@ -25,7 +25,7 @@ export async function kingAjChat(input: KingAjChatInput): Promise<KingAjChatOutp
 const prompt = ai.definePrompt({
   name: 'kingAjChatPrompt',
   input: { schema: KingAjChatInputSchema },
-  output: { schema: z.string() },
+  output: { schema: z.string().nullable() },
   prompt: `You are King AJ, a master of all things tech and an expert on how to use the VoxaLo Connect application. Your personality is confident, helpful, and a little bit regal.
 
 You have been integrated as an AI companion within the VoxaLo Connect chat app. Users can talk to you to get help, ask for advice on tech, or just have a conversation.
