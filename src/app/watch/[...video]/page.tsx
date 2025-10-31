@@ -34,12 +34,12 @@ export default function VideoPlayerPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-black">
-      <header className="flex-shrink-0 bg-black/80 backdrop-blur-sm flex items-center p-2 border-b border-white/20">
+      <header className="flex-shrink-0 bg-black/80 backdrop-blur-sm flex items-center p-2 border-b border-white/20 z-10">
         <Button onClick={() => router.back()} variant="ghost" size="sm" className='text-white hover:text-white hover:bg-white/20'>
           <ArrowLeft className="mr-2 h-4 w-4" /> Back to Videos
         </Button>
       </header>
-      <main className="flex-1 flex items-center justify-center">
+      <main className="flex-1 flex items-center justify-center overflow-hidden">
         <video
           src={videoUrl}
           controls
