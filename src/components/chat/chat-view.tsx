@@ -808,13 +808,17 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
           </div>
         </div>
       )}
-      {inCall && chatId && (
-        <JitsiMeet
-            roomName={chatId}
-            displayName={currentUser.displayName || 'User'}
-            onClose={() => setInCall(false)}
-        />
-      )}
+      <div style={{ display: inCall && chatId ? 'block' : 'none' }}>
+        {chatId && (
+          <JitsiMeet
+              roomName={chatId}
+              displayName={currentUser.displayName || 'User'}
+              onClose={() => setInCall(false)}
+          />
+        )}
+      </div>
     </div>
   );
 }
+
+    
