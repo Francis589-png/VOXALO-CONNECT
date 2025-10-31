@@ -71,37 +71,16 @@ export type Friendship = {
 
 // --- Game Types ---
 
-export type Player = 'red' | 'black';
-
-export type Piece = {
-    player: Player;
-    isKing: boolean;
-}
-
-export type SquareContent = Piece | null;
-
-export type Board = SquareContent[][];
-
 export interface Game {
-    id: string;
-    type: 'checkers';
-    players: string[]; // For querying games a user is in
-    playerAssignments: {
-        red: string; // user.uid
-        black: string; // user.uid
-    };
-    playerInfos: User[];
-    boardState: Board;
-    currentPlayer: Player;
-    status: 'active' | 'finished' | 'pending';
-    winner?: Player;
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-}
-
-export type Move = {
-    from: { row: number, col: number };
-    to: { row: number, col: number };
-    isJump: boolean;
-    jumpedPiece?: { row: number, col: number };
+    id: number;
+    title: string;
+    thumbnail: string;
+    short_description: string;
+    game_url: string;
+    genre: string;
+    platform: string;
+    publisher: string;
+    developer: string;
+    release_date: string;
+    freetogame_profile_url: string;
 }
