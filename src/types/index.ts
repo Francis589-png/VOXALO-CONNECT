@@ -39,6 +39,7 @@ export interface Chat {
   isGroup?: boolean;
   name?: string;
   photoURL?: string;
+  createdAt?: Timestamp;
 }
 
 export interface FriendRequest {

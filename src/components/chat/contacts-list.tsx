@@ -11,14 +11,16 @@ import { getChatId } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { useEffect, useState } from 'react';
-import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Users, File, Image as ImageIcon, Mic, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Icons } from '../icons';
 
 interface ContactsListProps {
   users: User[];
   selectedChat: Chat | null;
   onSelectChat: (chat: Chat) => void;
+  search: string;
 }
 
 function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User }) {
@@ -26,7 +28,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     const [otherUser, setOtherUser] = useState<User | undefined>();
 
     useEffect(() => {
-        if (chat.isGroup) return;
+        if (chat.isGroup || chat.id === 'king-aj-bot') return;
         const otherUserId = chat.users.find(u => u !== currentUser.uid);
         if (otherUserId) {
             const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
@@ -37,11 +39,13 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     }, [chat, currentUser]);
     
     const getChatName = () => {
+        if (chat.id === 'king-aj-bot') return 'King AJ';
         if (chat.isGroup) return chat.name;
         return otherUser?.displayName || chat.userInfos.find(u => u.uid !== currentUser.uid)?.displayName || '';
     }
 
     const getChatPhoto = () => {
+        if (chat.id === 'king-aj-bot') return null;
         if (chat.isGroup) return chat.photoURL;
         return otherUser?.photoURL || chat.userInfos.find(u => u.uid !== currentUser.uid)?.photoURL || '';
     }
@@ -49,6 +53,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     const isOnline = !chat.isGroup && otherUser?.status === 'online';
     
     const getLastMessagePreview = () => {
+        if(chat.id === 'king-aj-bot') return 'AI Companion';
         const lastMessage = chat.lastMessage;
         if (!lastMessage) return chat.isGroup ? 'Group Chat' : 'No messages yet';
 
@@ -75,10 +80,16 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
             >
             <div className="relative">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
-                    <AvatarFallback>
-                        {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
-                    </AvatarFallback>
+                    {chat.id === 'king-aj-bot' ? (
+                       <AvatarFallback className='bg-primary text-primary-foreground'><Icons.bot className="h-6 w-6" /></AvatarFallback>
+                    ) : (
+                        <>
+                         <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
+                         <AvatarFallback>
+                             {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
+                         </AvatarFallback>
+                        </>
+                    )}
                 </Avatar>
                 {isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
@@ -105,9 +116,17 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
 export default function ContactsList({
   selectedChat,
   onSelectChat,
+  search,
 }: ContactsListProps) {
   const { user: currentUser } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
+
+  const kingAjBotChat: Chat = {
+    id: 'king-aj-bot',
+    users: [currentUser?.uid || '', 'king-aj-bot'],
+    userInfos: [],
+    isGroup: false,
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -128,13 +147,30 @@ export default function ContactsList({
     return () => unsubscribe();
   }, [currentUser]);
 
+  const filteredChats = useMemo(() => {
+    const allChats = [kingAjBotChat, ...chats];
+    if (!search) return allChats;
 
-  if (chats.length === 0) {
+    const searchLower = search.toLowerCase();
+    return allChats.filter(chat => {
+        if (chat.id === 'king-aj-bot') {
+            return 'king aj'.includes(searchLower);
+        }
+        if (chat.isGroup) {
+            return chat.name?.toLowerCase().includes(searchLower);
+        }
+        const otherUser = chat.userInfos.find(u => u.uid !== currentUser?.uid);
+        return otherUser?.displayName?.toLowerCase().includes(searchLower);
+    });
+  }, [chats, search, currentUser, kingAjBotChat]);
+
+
+  if (filteredChats.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center h-full p-4 text-center">
             <p className="text-muted-foreground">No contacts found.</p>
             <p className="text-xs text-muted-foreground">
-                Use the Explore tab to find new friends.
+                Use the Explore tab to find new friends or try a different search.
             </p>
         </div>
     );
@@ -144,7 +180,7 @@ export default function ContactsList({
   return (
     <ScrollArea className="h-full">
         <div className="flex flex-col">
-        {chats.map((chat) => (
+        {filteredChats.map((chat) => (
             <ContactItem 
                 key={chat.id} 
                 chat={chat}

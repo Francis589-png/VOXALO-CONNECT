@@ -11,6 +11,7 @@ import {
   arrayUnion,
   deleteDoc,
   getDoc,
+  Timestamp,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -26,6 +27,7 @@ import {
   StopCircle,
   Paperclip,
   FileIcon,
+  Bot,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -48,6 +50,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
+import { kingAjChat } from '@/ai/flows/king-aj-flow';
+import { Icons } from '../icons';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -154,10 +158,15 @@ function MessageBubble({
         isOwnMessage ? 'flex-row-reverse' : 'flex-row'
       )}
     >
-       {!isOwnMessage && chat.isGroup && (
+       {(!isOwnMessage && chat.isGroup) && (
         <Avatar className="h-8 w-8">
             <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
             <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
+        </Avatar>
+       )}
+       {chat.id === 'king-aj-bot' && !isOwnMessage && (
+        <Avatar className="h-8 w-8">
+            <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
         </Avatar>
        )}
       <div
@@ -196,11 +205,11 @@ function MessageBubble({
           <span>
             {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
           </span>
-          <ReadReceipt
+          {chat.id !== 'king-aj-bot' && <ReadReceipt
             isOwnMessage={isOwnMessage}
             readBy={message.readBy}
             chat={chat}
-          />
+          /> }
         </div>
       </div>
       <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
@@ -237,7 +246,7 @@ function MessageBubble({
               <Trash2 className="mr-2 h-4 w-4" />
               <span>Delete for me</span>
             </DropdownMenuItem>
-            {isOwnMessage && (
+            {isOwnMessage && chat.id !== 'king-aj-bot' && (
               <DropdownMenuItem
                 className="text-red-500"
                 onClick={() => onDeleteForEveryone(message.id)}
@@ -267,14 +276,21 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isBotTyping, setIsBotTyping] = useState(false);
+
+  const isKingAjChat = selectedChat?.id === 'king-aj-bot';
 
   const canChat =
-    selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup;
+    (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup) || isKingAjChat;
   
   const chatId = selectedChat?.id;
 
   useEffect(() => {
-    if (selectedChat) {
+    if (selectedChat?.id === 'king-aj-bot') {
+      setChatData(selectedChat);
+      setMessages([]);
+      setOtherUser(null);
+    } else if (selectedChat) {
       const chatDocRef = doc(db, 'chats', selectedChat.id);
       const unsubscribe = onSnapshot(chatDocRef, (docSnap) => {
         if (docSnap.exists()) {
@@ -298,7 +314,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   }, [currentUser?.uid]);
 
   useEffect(() => {
-    if (selectedChat && !selectedChat.isGroup) {
+    if (selectedChat && !selectedChat.isGroup && !isKingAjChat) {
       const otherUserId = selectedChat.users.find(u => u !== currentUser.uid);
       if (otherUserId) {
         const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
@@ -309,12 +325,12 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     } else {
         setOtherUser(null);
     }
-  }, [selectedChat, currentUser.uid]);
+  }, [selectedChat, currentUser.uid, isKingAjChat]);
 
 
   useEffect(() => {
-    if (!chatId) {
-      setMessages([]);
+    if (!chatId || isKingAjChat) {
+      if(!isKingAjChat) setMessages([]);
       return;
     }
 
@@ -348,7 +364,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     });
 
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, chatData?.users]);
+  }, [chatId, currentUser.uid, chatData?.users, isKingAjChat]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -361,7 +377,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         }
       }, 100);
     }
-  }, [messages, selectedChat]);
+  }, [messages, selectedChat, isBotTyping]);
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
     if (!chatId) return;
@@ -394,17 +410,45 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     e.preventDefault();
     if (!newMessage.trim() || !chatData) return;
 
-    const messageData = {
-        type: 'text' as const,
-        text: newMessage,
-        senderId: currentUser.uid,
-        timestamp: serverTimestamp(),
-        readBy: [currentUser.uid],
-        deletedFor: [],
-    };
-    
+    const text = newMessage;
     setNewMessage('');
-    await addMessageToChat(messageData);
+
+    if (isKingAjChat) {
+        const userMessage: Message = {
+            id: `user-${Date.now()}`,
+            text,
+            senderId: currentUser.uid,
+            timestamp: new Date(),
+            type: 'text',
+        };
+        setMessages(prev => [...prev, userMessage]);
+        setIsBotTyping(true);
+
+        const history = messages.map(m => ({ [m.senderId === currentUser.uid ? 'user' : 'model']: m.text }));
+
+        const botResponseText = await kingAjChat({ history, message: text });
+        setIsBotTyping(false);
+
+        const botMessage: Message = {
+            id: `bot-${Date.now()}`,
+            text: botResponseText,
+            senderId: 'king-aj-bot',
+            timestamp: new Date(),
+            type: 'text',
+        };
+        setMessages(prev => [...prev, botMessage]);
+
+    } else {
+        const messageData = {
+            type: 'text' as const,
+            text,
+            senderId: currentUser.uid,
+            timestamp: serverTimestamp(),
+            readBy: [currentUser.uid],
+            deletedFor: [],
+        };
+        await addMessageToChat(messageData);
+    }
   };
 
   const handleToggleRecording = async () => {
@@ -495,6 +539,12 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
 
   const handleDeleteForMe = async (messageId: string) => {
     if (!chatId) return;
+
+    if(isKingAjChat) {
+        setMessages(prev => prev.filter(m => m.id !== messageId));
+        return;
+    }
+
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await updateDoc(messageRef, {
       deletedFor: arrayUnion(currentUser.uid),
@@ -502,13 +552,13 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   };
 
   const handleDeleteForEveryone = async (messageId: string) => {
-    if (!chatId) return;
+    if (!chatId || isKingAjChat) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     await deleteDoc(messageRef);
   };
   
   const handleReact = async (messageId: string, emoji: string) => {
-    if (!chatId) return;
+    if (!chatId || isKingAjChat) return;
     const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
     const docSnap = await getDoc(messageRef);
 
@@ -539,12 +589,14 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
 
   const getChatName = () => {
     if (!chatData) return '';
+    if (isKingAjChat) return 'King AJ';
     if (chatData.isGroup) return chatData.name;
     return otherUser?.displayName || '';
   }
 
   const getChatPhoto = () => {
     if (!chatData) return '';
+    if (isKingAjChat) return null;
     if (chatData.isGroup) return chatData.photoURL;
     return otherUser?.photoURL || '';
   }
@@ -552,6 +604,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const getChatSubtext = () => {
     if (!chatData) return null;
 
+    if(isKingAjChat) return 'AI Companion | Tech Expert';
     if (chatData.isGroup) {
       return `${chatData.users.length} members`;
     }
@@ -585,11 +638,11 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     );
   }
   
-  const initialOtherUser = chatData?.userInfos.find(u => u.uid !== currentUser.uid);
+  const initialOtherUser = chatData?.userInfos?.find(u => u.uid !== currentUser.uid);
 
   return (
     <div className="flex h-full max-h-screen flex-col relative">
-      {currentUserData?.chatWallpaper && (
+      {currentUserData?.chatWallpaper && !isKingAjChat && (
         <Image
             src={currentUserData.chatWallpaper}
             alt="Chat wallpaper"
@@ -601,13 +654,19 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
         <div className='relative'>
             <Avatar className="h-10 w-10">
-            <AvatarImage
-                src={getChatPhoto()!}
-                alt={getChatName()!}
-            />
-            <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
+            {isKingAjChat ? (
+                <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-6 w-6" /></AvatarFallback>
+            ) : (
+                <>
+                <AvatarImage
+                    src={getChatPhoto()!}
+                    alt={getChatName()!}
+                />
+                <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
+                </>
+            )}
             </Avatar>
-            {!chatData?.isGroup && otherUser?.status === 'online' && (
+            {!chatData?.isGroup && otherUser?.status === 'online' && !isKingAjChat && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
             )}
         </div>
@@ -622,7 +681,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             <div className="p-6 space-y-4">
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
-                const sender = chatData?.userInfos.find(u => u.uid === message.senderId);
+                const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
 
                 return (
                   <MessageBubble
@@ -638,6 +697,20 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                   />
                 );
               })}
+              {isBotTyping && (
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
+                    </Avatar>
+                    <div className="p-2.5 bg-card rounded-lg">
+                      <div className="flex items-center gap-1">
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce" />
+                      </div>
+                    </div>
+                  </div>
+                )}
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
@@ -656,37 +729,45 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                     onSubmit={handleSendMessage}
                     className="flex items-center gap-2"
                 >
-                    <Input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
-                        <Paperclip className="h-5 w-5" />
-                    </Button>
+                    {!isKingAjChat && (
+                      <>
+                        <Input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleFileChange}
+                          className="hidden"
+                        />
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
+                            <Paperclip className="h-5 w-5" />
+                        </Button>
+                      </>
+                    )}
 
                     <Input
                         value={newMessage}
                         onChange={(e) => {
                             setNewMessage(e.target.value);
                         }}
-                        placeholder={'Type a message...'}
+                        placeholder={isKingAjChat ? 'Ask King AJ...' : 'Type a message...'}
                         autoComplete="off"
-                        disabled={uploading}
+                        disabled={uploading || isBotTyping}
                     />
                     {newMessage.trim() ? (
                         <Button
                             type="submit"
                             size="icon"
-                            disabled={uploading}
+                            disabled={uploading || isBotTyping}
                         >
                             <Send className="h-5 w-5" />
                         </Button>
-                    ) : (
+                    ) : !isKingAjChat ? (
                         <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost" disabled={uploading}>
                             <Mic className="h-5 w-5" />
                         </Button>
+                    ) : (
+                      <Button type="submit" size="icon" disabled>
+                        <Send className="h-5 w-5" />
+                      </Button>
                     )}
                 </form>
             )}

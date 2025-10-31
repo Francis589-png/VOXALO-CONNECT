@@ -132,6 +132,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
               users={filteredUsers}
               selectedChat={selectedChat}
               onSelectChat={handleSelectChat}
+              search={search}
             />
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
