@@ -516,6 +516,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             }
             setIsRecording(false);
             setRecordingTime(0);
+            // Stop all tracks on the stream before creating the blob
             stream.getTracks().forEach(track => track.stop());
 
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -749,8 +750,9 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                           ref={fileInputRef}
                           onChange={handleFileChange}
                           className="hidden"
+                          disabled={uploading || isRecording}
                         />
-                        <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
+                        <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading || isRecording}>
                             <Paperclip className="h-5 w-5" />
                         </Button>
                     </>
@@ -762,18 +764,18 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                         }}
                         placeholder={'Type a message...'}
                         autoComplete="off"
-                        disabled={uploading}
+                        disabled={uploading || isRecording}
                     />
                     {newMessage.trim() ? (
                         <Button
                             type="submit"
                             size="icon"
-                            disabled={uploading}
+                            disabled={uploading || isRecording}
                         >
                             <Send className="h-5 w-5" />
                         </Button>
                     ) : (
-                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost" disabled={uploading}>
+                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost" disabled={uploading || isRecording}>
                             <Mic className="h-5 w-5" />
                         </Button>
                     )}
