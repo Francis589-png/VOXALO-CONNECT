@@ -38,6 +38,8 @@ export interface Message {
     fileName: string | null;
   };
   editedAt?: Timestamp;
+  role?: 'user' | 'model';
+  content?: { text: string }[];
 }
 
 export interface Chat {

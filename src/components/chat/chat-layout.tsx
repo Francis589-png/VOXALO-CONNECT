@@ -1,7 +1,7 @@
 
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard } from 'lucide-react';
+import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
@@ -32,6 +32,7 @@ import GamesBrowserPage from './games-browser-page';
 import VideoBrowserPage from './video-browser-page';
 import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
 import { Badge } from '../ui/badge';
+import AssistantView from './assistant-view';
 
 
 interface ChatLayoutProps {
@@ -45,6 +46,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const isMobile = useIsMobile();
   const totalUnreadCount = useTotalUnreadCount(currentUser.uid);
+  const [isAssistantSelected, setIsAssistantSelected] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default' && currentUser.uid) {
@@ -65,22 +67,31 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
 
   const handleSelectChat = (chat: Chat) => {
     setSelectedChat(chat);
+    setIsAssistantSelected(false);
     setIsCreatingGroup(false);
+  };
+  
+  const handleSelectAssistant = () => {
+    setSelectedChat(null);
+    setIsAssistantSelected(true);
   };
   
   const handleBack = () => {
     setSelectedChat(null);
+    setIsAssistantSelected(false);
   };
 
   const filteredUsers = users.filter((u) =>
     u.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const isChatVisible = isAssistantSelected || selectedChat;
+
   return (
     <div className="flex h-screen w-full">
       <div className={cn(
           "flex h-full max-h-screen w-full flex-col md:w-80 md:border-r md:bg-background/80 md:backdrop-blur-xl",
-          isMobile && selectedChat && "hidden"
+          isMobile && isChatVisible && "hidden"
       )}>
         <div className="flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-2 group">
@@ -157,6 +168,23 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           </div>
           <Separator />
           <TabsContent value="contacts" className="flex-1 overflow-y-auto mt-0">
+            <button
+                onClick={handleSelectAssistant}
+                className={cn(
+                    'flex items-center gap-3 p-4 text-left w-full transition-colors',
+                    isAssistantSelected ? 'bg-accent' : 'hover:bg-accent/50'
+                )}
+            >
+                <Avatar className="h-10 w-10">
+                    <div className='flex items-center justify-center h-full w-full bg-gradient-to-br from-primary to-purple-500 rounded-full'>
+                        <Sparkles className="h-6 w-6 text-white" />
+                    </div>
+                </Avatar>
+                <div className="flex-1 overflow-hidden">
+                    <p className="font-semibold truncate">VoxaLo AI</p>
+                    <p className="text-xs text-muted-foreground truncate">Your personal assistant</p>
+                </div>
+            </button>
             <CreateGroupDialog currentUser={currentUser} onGroupCreated={handleSelectChat}>
                 <Button variant="ghost" className="w-full justify-start gap-3 p-4 text-left h-auto rounded-none">
                     <div className='p-2 bg-muted rounded-full'>
@@ -184,13 +212,17 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           </TabsContent>
         </Tabs>
       </div>
-      <div className={cn("flex-1", (!isMobile || selectedChat) ? "flex" : "hidden")}>
-        <ChatView 
-            currentUser={currentUser} 
-            selectedChat={selectedChat}
-            onBack={isMobile ? handleBack : undefined}
-            onChatDeleted={() => setSelectedChat(null)}
-        />
+      <div className={cn("flex-1", (!isMobile || isChatVisible) ? "flex" : "hidden")}>
+        {isAssistantSelected ? (
+          <AssistantView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />
+        ) : (
+          <ChatView 
+              currentUser={currentUser} 
+              selectedChat={selectedChat}
+              onBack={isMobile ? handleBack : undefined}
+              onChatDeleted={() => setSelectedChat(null)}
+          />
+        )}
       </div>
     </div>
   );
