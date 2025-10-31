@@ -21,7 +21,7 @@ function GameItem({ game, currentUser }: { game: Game, currentUser: User }) {
     
     if (!opponent) return null;
 
-    const isOurTurn = game.players[game.currentPlayer] === currentUser.uid;
+    const isOurTurn = game.playerAssignments[game.currentPlayer] === currentUser.uid;
 
     return (
         <Link href={`/game/${game.id}`} className='block w-full text-left'>
@@ -79,6 +79,7 @@ export default function GamesPage() {
             });
             setIsDialogOpen(false);
         } catch (error) {
+            console.error("Error starting game: ", error);
             toast({
                 title: 'Error',
                 description: 'Could not start the game. Please try again.',

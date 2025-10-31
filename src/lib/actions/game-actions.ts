@@ -34,7 +34,8 @@ export async function createCheckersGame(user1: User, user2: User): Promise<Game
 
     const newGame = {
         type: 'checkers',
-        players: {
+        players: [user1.uid, user2.uid], // Store players as an array of UIDs for querying
+        playerAssignments: {
             red: user1.uid,
             black: user2.uid,
         },
@@ -48,7 +49,7 @@ export async function createCheckersGame(user1: User, user2: User): Promise<Game
 
     const docRef = await addDoc(collection(db, 'games'), newGame);
 
-    return { id: docRef.id, ...newGame } as Game;
+    return { id: docRef.id, ...newGame } as unknown as Game;
 }
 
 export async function updateGameState(gameId: string, newBoard: Board, nextPlayer: Player, winner?: Player) {

@@ -67,7 +67,7 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
   const [validMoves, setValidMoves] = useState<Move[]>([]);
   const { toast } = useToast();
 
-  const isMyTurn = game.players[game.currentPlayer] === currentUser.uid;
+  const isMyTurn = game.playerAssignments[game.currentPlayer] === currentUser.uid;
 
   const handleSquareClick = (row: number, col: number) => {
     if (!isMyTurn || game.status === 'finished') return;
@@ -144,7 +144,7 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
     let winner: Player | undefined = undefined;
     if (opponentPieces.length === 0) {
         winner = game.currentPlayer;
-        toast({ title: "Game Over!", description: `${game.playerInfos.find(p => p.uid === game.players[winner!])?.displayName} wins!`});
+        toast({ title: "Game Over!", description: `${game.playerInfos.find(p => p.uid === game.playerAssignments[winner!])?.displayName} wins!`});
     }
 
     await updateGameState(game.id, newBoard, opponent, winner);

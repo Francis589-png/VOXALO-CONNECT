@@ -85,7 +85,8 @@ export type Board = SquareContent[][];
 export interface Game {
     id: string;
     type: 'checkers';
-    players: {
+    players: string[]; // For querying games a user is in
+    playerAssignments: {
         red: string; // user.uid
         black: string; // user.uid
     };

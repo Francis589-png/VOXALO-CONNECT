@@ -64,12 +64,12 @@ export default function GamePage({ params }: { params: { gameId: string } }) {
     return <Loading />;
   }
 
-  if (!user || !game.players.red || !game.players.black || ![game.players.red, game.players.black].includes(user.uid)) {
+  if (!user || !game.players.includes(user.uid)) {
     return notFound();
   }
   
-  const redPlayer = game.playerInfos.find(p => p.uid === game.players.red);
-  const blackPlayer = game.playerInfos.find(p => p.uid === game.players.black);
+  const redPlayer = game.playerInfos.find(p => p.uid === game.playerAssignments.red);
+  const blackPlayer = game.playerInfos.find(p => p.uid === game.playerAssignments.black);
   
   if(!redPlayer || !blackPlayer) return <Loading />;
 
