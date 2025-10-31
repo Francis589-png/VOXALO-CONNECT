@@ -63,7 +63,7 @@ function ArchiveVideoCard({ video }: { video: ArchiveVideo }) {
                 <div className='relative aspect-video bg-black'>
                     <Image
                         src={imageUrl}
-                        alt={video.title || video.identifier}
+                        alt={video.title || video.identifier || 'Internet Archive Video'}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => { e.currentTarget.src = 'https://archive.org/images/glogo.png'; e.currentTarget.className='object-contain p-4'; }}
