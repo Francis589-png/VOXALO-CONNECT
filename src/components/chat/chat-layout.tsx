@@ -1,6 +1,7 @@
+
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { LogOut, Search, User as UserIcon, Users } from 'lucide-react';
+import { LogOut, Search as SearchIcon, User as UserIcon, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
@@ -125,7 +126,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           </TabsList>
           <div className="p-4 pt-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search..."
                 className="pl-9"
@@ -163,6 +164,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
             currentUser={currentUser} 
             selectedChat={selectedChat}
             onBack={isMobile ? handleBack : undefined}
+            onChatDeleted={() => setSelectedChat(null)}
         />
       </div>
     </div>

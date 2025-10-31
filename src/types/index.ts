@@ -1,3 +1,4 @@
+
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Timestamp } from 'firebase/firestore';
 
@@ -48,6 +49,7 @@ export interface Chat {
   name?: string;
   photoURL?: string;
   createdAt?: Timestamp;
+  createdBy?: string;
 }
 
 export interface FriendRequest {
@@ -66,5 +68,3 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
-
-    

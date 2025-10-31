@@ -1,3 +1,4 @@
+
 'use client';
 import {
   addDoc,
@@ -12,6 +13,7 @@ import {
   deleteDoc,
   getDoc,
   Timestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -31,8 +33,9 @@ import {
   User,
   Pencil,
   Users as UsersIcon,
+  Search,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
 import Image from 'next/image';
 
@@ -54,6 +57,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import UserProfileCard from './user-profile-card';
+import { useGroupInfo } from '../providers/group-info-provider';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -62,6 +66,7 @@ interface ChatViewProps {
   currentUser: FirebaseUser;
   selectedChat: Chat | null;
   onBack?: () => void;
+  onChatDeleted: () => void;
 }
 
 function ReadReceipt({
@@ -79,7 +84,7 @@ function ReadReceipt({
 
   // Filter out the current user from the readBy list and total user list
   const otherUsersInChat = chat.users.filter(uid => uid !== isOwnMessage);
-  const otherUsersWhoRead = readBy?.filter(uid => uid !== isOwnMessage) || [];
+  const otherUsersWhoRead = readBy?.filter(uid => uid !== currentUser.uid) || [];
 
   const allRead = otherUsersInChat.every(userId => otherUsersWhoRead.includes(userId));
 
@@ -109,6 +114,7 @@ function ReadReceipt({
                                 <span className='text-sm'>{user.displayName}</span>
                             </div>
                         ))}
+                         {readers.length === 0 && <p className='text-xs text-muted-foreground text-center p-2'>No one has read this yet.</p>}
                     </div>
                 </ScrollArea>
              </div>
@@ -365,7 +371,7 @@ function MessageBubble({
   );
 }
 
-export default function ChatView({ currentUser, selectedChat, onBack }: ChatViewProps) {
+export default function ChatView({ currentUser, selectedChat, onBack, onChatDeleted }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -378,7 +384,9 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
   const [selectedProfileUser, setSelectedProfileUser] = useState<AppUser | null>(null);
-
+  const { setGroup } = useGroupInfo();
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
@@ -392,11 +400,18 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         if (docSnap.exists()) {
           const data = { id: docSnap.id, ...docSnap.data() } as Chat;
           setChatData(data);
+          if (data.isGroup) {
+            setGroup(data);
+          } else {
+            setGroup(null);
+          }
+        } else {
+            onChatDeleted();
         }
       });
       return () => unsubscribe();
     }
-  }, [selectedChat, currentUser.uid]);
+  }, [selectedChat, currentUser.uid, setGroup, onChatDeleted]);
 
 
   useEffect(() => {
@@ -474,7 +489,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         }
       }, 100);
     }
-  }, [messages, selectedChat]);
+  }, [messages, selectedChat, searchQuery]);
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
@@ -592,24 +607,18 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     if (docSnap.exists()) {
         const message = docSnap.data() as Message;
         const reactions = message.reactions || {};
-        const existingReaction = reactions[emoji] || [];
+        const userReactions = reactions[emoji] || [];
 
-        if (existingReaction.includes(currentUser.uid)) {
-            const newReactions = {
-                ...reactions,
-                [emoji]: existingReaction.filter(uid => uid !== currentUser.uid)
-            };
-            if(newReactions[emoji].length === 0) {
-                delete newReactions[emoji];
-            }
-            await updateDoc(messageRef, { reactions: newReactions });
-
+        if (userReactions.includes(currentUser.uid)) {
+            // User is removing their reaction
+            await updateDoc(messageRef, {
+                [`reactions.${emoji}`]: arrayRemove(currentUser.uid)
+            });
         } else {
-            const newReactions = {
-                ...reactions,
-                [emoji]: [...existingReaction, currentUser.uid]
-            };
-            await updateDoc(messageRef, { reactions: newReactions });
+            // User is adding a reaction
+            await updateDoc(messageRef, {
+                [`reactions.${emoji}`]: arrayUnion(currentUser.uid)
+            });
         }
     }
   };
@@ -662,6 +671,24 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     setSelectedProfileUser(user);
     setIsProfileCardOpen(true);
   }
+
+  const { setIsOpen: setIsGroupInfoOpen } = useGroupInfo();
+
+  const handleOpenGroupInfo = () => {
+    if (chatData?.isGroup) {
+        setGroup(chatData);
+        setIsGroupInfoOpen(true);
+    }
+  }
+
+  const filteredMessages = useMemo(() => {
+    if (!searchQuery) {
+        return messages;
+    }
+    return messages.filter(msg => 
+        msg.text?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [messages, searchQuery]);
   
 
   if (!selectedChat) {
@@ -708,51 +735,74 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             )}
         </button>
         <div className='flex-1'>
-          <h2 className="text-lg font-semibold">{getChatName()}</h2>
-          <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
+            {isSearching ? (
+                 <Input 
+                    autoFocus
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search messages..."
+                    className="h-9"
+                 />
+            ) : (
+                <>
+                 <h2 className="text-lg font-semibold">{getChatName()}</h2>
+                 <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
+                </>
+            )}
         </div>
-        {chatData?.isGroup && (
-             <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-5 w-5" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                    <DropdownMenuItem>
-                        <UsersIcon className="mr-2 h-4 w-4" />
-                        <span>Group Info</span>
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-        )}
+        <div className='flex items-center gap-2'>
+            <Button variant="ghost" size="icon" onClick={() => setIsSearching(prev => !prev)}>
+                {isSearching ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+            </Button>
+            {chatData?.isGroup && (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        <DropdownMenuItem onClick={handleOpenGroupInfo}>
+                            <UsersIcon className="mr-2 h-4 w-4" />
+                            <span>Group Info</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            )}
+        </div>
       </div>
       {canChat ? (
         <>
           <ScrollArea className="flex-1 z-10" ref={scrollAreaRef}>
-            <div className="p-6 space-y-4">
-              {messages.map((message) => {
-                if (message.deletedFor?.includes(currentUser.uid)) return null;
-                const isOwnMessage = message.senderId === currentUser.uid;
-                const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
+             {filteredMessages.length === 0 && searchQuery ? (
+                <div className="text-center text-muted-foreground p-8">
+                    <p>No messages found for "{searchQuery}"</p>
+                </div>
+             ) : (
+                <div className="p-6 space-y-4">
+                {filteredMessages.map((message) => {
+                    if (message.deletedFor?.includes(currentUser.uid)) return null;
+                    const isOwnMessage = message.senderId === currentUser.uid;
+                    const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
 
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    message={message}
-                    isOwnMessage={isOwnMessage}
-                    onDeleteForMe={handleDeleteForMe}
-                    onDeleteForEveryone={handleDeleteForEveryone}
-                    onReact={handleReact}
-                    onReply={setReplyingTo}
-                    currentUser={currentUser}
-                    chat={chatData!}
-                    sender={sender}
-                    onSaveEdit={handleSaveEdit}
-                  />
-                );
-              })}
-            </div>
+                    return (
+                    <MessageBubble
+                        key={message.id}
+                        message={message}
+                        isOwnMessage={isOwnMessage}
+                        onDeleteForMe={handleDeleteForMe}
+                        onDeleteForEveryone={handleDeleteForEveryone}
+                        onReact={handleReact}
+                        onReply={setReplyingTo}
+                        currentUser={currentUser}
+                        chat={chatData!}
+                        sender={sender}
+                        onSaveEdit={handleSaveEdit}
+                    />
+                    );
+                })}
+                </div>
+             )}
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
             {replyingTo && (
@@ -823,5 +873,3 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     </div>
   );
 }
-
-    
