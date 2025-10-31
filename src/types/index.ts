@@ -34,7 +34,6 @@ export interface Chat {
   isGroup?: boolean;
   name?: string;
   photoURL?: string;
-  typing?: string[];
 }
 
 export interface FriendRequest {

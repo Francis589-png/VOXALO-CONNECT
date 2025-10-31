@@ -7,13 +7,9 @@ import {
   orderBy,
   query,
   serverTimestamp,
-  setDoc,
-  Timestamp,
   updateDoc,
   arrayUnion,
-  getDocs,
   deleteDoc,
-  arrayRemove,
   getDoc,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -38,7 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
 import type { Message, User, Chat } from '@/types';
-import { cn, getChatId } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
 import {
@@ -102,8 +98,8 @@ function MessageBubble({
   chat: Chat;
   sender: User | undefined;
 }) {
-  const date = (message.timestamp as Timestamp)?.toDate
-    ? (message.timestamp as Timestamp).toDate()
+  const date = (message.timestamp as any)?.toDate
+    ? (message.timestamp as any).toDate()
     : new Date();
   const formattedDate = date
     ? formatRelative(date, new Date())
@@ -235,7 +231,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canChat =
     selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup;
@@ -283,8 +278,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
 
       setMessages(messagesData);
 
-      const otherUser = chatData?.users.find(uid => uid !== currentUser.uid);
-
       messagesData.forEach((message) => {
         if (
           message.senderId !== currentUser.uid &&
@@ -320,7 +313,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id'>) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp'> & { timestamp: any }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -347,40 +340,11 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     await updateDoc(chatRef, updatePayload);
   };
   
-  const handleTyping = (text: string) => {
-    if (!chatId || chatData?.isGroup) return;
-
-    const chatRef = doc(db, 'chats', chatId);
-
-    if (text.length > 0) {
-      updateDoc(chatRef, {
-        typing: arrayUnion(currentUser.uid),
-      });
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      typingTimeoutRef.current = setTimeout(() => {
-        updateDoc(chatRef, {
-          typing: arrayRemove(currentUser.uid),
-        });
-      }, 3000);
-    } else {
-        if (typingTimeoutRef.current) {
-            clearTimeout(typingTimeoutRef.current);
-        }
-        updateDoc(chatRef, {
-            typing: arrayRemove(currentUser.uid),
-        });
-    }
-  };
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !chatData) return;
 
-    const messageData: Omit<Message, 'id'> = {
+    const messageData = {
         type: 'text',
         text: newMessage,
         senderId: currentUser.uid,
@@ -390,7 +354,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     };
     
     setNewMessage('');
-    handleTyping('');
     await addMessageToChat(messageData);
   };
 
@@ -432,8 +395,8 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             
             if (!chatData) return;
 
-            const messageData: Omit<Message, 'id'> = {
-                type: 'audio',
+            const messageData = {
+                type: 'audio' as const,
                 audioURL,
                 senderId: currentUser.uid,
                 timestamp: serverTimestamp(),
@@ -513,11 +476,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
 
     if (chatData.isGroup) {
       return `${chatData.users.length} members`;
-    }
-
-    const otherUserId = chatData.users.find(u => u !== currentUser.uid);
-    if (chatData.typing?.includes(otherUserId!)) {
-      return <span className="italic text-primary">typing...</span>;
     }
     
     const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
@@ -607,7 +565,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                         value={newMessage}
                         onChange={(e) => {
                             setNewMessage(e.target.value);
-                            handleTyping(e.target.value);
                         }}
                         placeholder={'Type a message...'}
                         autoComplete="off"
