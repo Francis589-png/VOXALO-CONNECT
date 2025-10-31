@@ -4,8 +4,6 @@ import { createContext, useContext, useCallback, ReactNode } from 'react';
 import type { User, Message } from '@/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { Button } from '../ui/button';
-import { X } from 'lucide-react';
 
 interface NewMessageNotificationContextType {
   showNotification: (sender: User, message: Message) => void;
@@ -21,7 +19,7 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
       case 'image':
         return 'Sent an image';
       case 'file':
-        return `Sent a file: ${message.fileName}`;
+        return `Sent a file: ${message.fileName || 'attachment'}`;
       default:
         return message.text;
     }
@@ -29,8 +27,8 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
 
   const showNotification = useCallback((sender: User, message: Message) => {
     try {
-        const audio = new Audio('/notification.mp3');
-        audio.play().catch(e => console.error("Error playing notification sound:", e));
+      const audio = new Audio('/notification.mp3');
+      audio.play().catch(e => console.error("Error playing notification sound:", e));
     } catch (e) {
         console.error("Could not play notification sound", e);
     }
