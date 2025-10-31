@@ -66,7 +66,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
     
     const getLastMessagePreview = () => {
         const lastMessage = chat.lastMessage;
-        if (!lastMessage) return chat.isGroup ? 'Group Chat' : 'No messages yet';
+        if (!lastMessage) return chat.isGroup ? 'Group Chat' : otherUser?.statusMessage || 'No messages yet';
 
         let prefix = '';
         if (chat.isGroup && lastMessage.senderId !== currentUser.uid) {

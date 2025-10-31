@@ -34,8 +34,10 @@ import {
   Pencil,
   Users as UsersIcon,
   Search,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
 import Image from 'next/image';
 
@@ -59,6 +61,8 @@ import { Progress } from '../ui/progress';
 import UserProfileCard from './user-profile-card';
 import { useGroupInfo } from '../providers/group-info-provider';
 import { Textarea } from '../ui/textarea';
+import { getReplySuggestions } from '@/ai/flows/reply-suggestions-flow';
+import { useDebounce } from '@/hooks/use-debounce';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -403,11 +407,53 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const { setGroup } = useGroupInfo();
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isFetchingSuggestions, setIsFetchingSuggestions] = useState(false);
+  const debouncedMessages = useDebounce(messages, 2000);
   
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
   
   const chatId = selectedChat?.id;
+
+  const handleQuickReply = useCallback((reply: string) => {
+    setNewMessage(reply);
+    textareaRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+        if (!chatData || !canChat || chatData.isGroup || messages.length === 0) {
+            setSuggestions([]);
+            return;
+        }
+
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage.senderId === currentUser.uid || isFetchingSuggestions || newMessage.length > 0) {
+            setSuggestions([]);
+            return;
+        }
+
+        setIsFetchingSuggestions(true);
+        try {
+            const history = messages.slice(-5).map(m => ({
+                text: m.text || '',
+                isUser: m.senderId === currentUser.uid,
+            }));
+            const result = await getReplySuggestions({ history });
+            setSuggestions(result.suggestions);
+        } catch (error) {
+            console.error("Error fetching reply suggestions:", error);
+            setSuggestions([]);
+        } finally {
+            setIsFetchingSuggestions(false);
+        }
+    };
+    fetchSuggestions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedMessages, chatData, canChat, currentUser.uid, newMessage]);
+
 
   useEffect(() => {
     if (selectedChat) {
@@ -825,6 +871,24 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
              )}
           </ScrollArea>
           <div className="border-t p-4 bg-background/80 backdrop-blur-sm z-10">
+            {suggestions.length > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                    {suggestions.map((suggestion, i) => (
+                        <Button key={i} size="sm" variant="outline" onClick={() => handleQuickReply(suggestion)} className="shrink-0">
+                            {suggestion}
+                        </Button>
+                    ))}
+                    </div>
+                </div>
+            )}
+            {isFetchingSuggestions && (
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2 px-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Generating suggestions...</span>
+                 </div>
+            )}
             {replyingTo && (
                 <div className="flex items-center justify-between bg-muted p-2 rounded-t-md text-sm">
                     <div className="flex-1 overflow-hidden">

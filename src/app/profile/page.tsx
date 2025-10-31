@@ -30,6 +30,7 @@ import { uploadFile } from '@/lib/pinata';
 
 const formSchema = z.object({
   displayName: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  statusMessage: z.string().max(50, { message: 'Status must be 50 characters or less.' }).optional(),
   readReceiptsEnabled: z.boolean(),
   notificationSounds: z.boolean(),
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
@@ -57,6 +58,7 @@ export default function ProfilePage() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       displayName: '',
+      statusMessage: '',
       readReceiptsEnabled: true,
       notificationSounds: false,
       bio: '',
@@ -77,6 +79,7 @@ export default function ProfilePage() {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('notificationSounds', userData.notificationSounds ?? false);
             form.setValue('bio', userData.bio || '');
+            form.setValue('statusMessage', userData.statusMessage || '');
             form.setValue('theme', userData.theme || 'system');
           }
         }
@@ -118,6 +121,7 @@ export default function ProfilePage() {
       await updateDoc(userDocRef, {
         displayName: values.displayName,
         photoURL,
+        statusMessage: values.statusMessage,
         readReceiptsEnabled: values.readReceiptsEnabled,
         notificationSounds: values.notificationSounds,
         bio: values.bio,
@@ -199,6 +203,20 @@ export default function ProfilePage() {
                           <FormControl>
                               <Input placeholder="John Doe" {...field} />
                           </FormControl>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="statusMessage"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <FormControl>
+                              <Input placeholder="What's on your mind?" {...field} />
+                          </FormControl>
+                          <FormDescription>A short status message shown on your profile.</FormDescription>
                           <FormMessage />
                           </FormItem>
                       )}

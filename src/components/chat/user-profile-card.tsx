@@ -62,6 +62,7 @@ function ProfileContent({ user }: { user: User }) {
           <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
         </Avatar>
         <DialogTitle>{user.displayName}</DialogTitle>
+        <p className="text-sm text-muted-foreground mt-1">{user.statusMessage}</p>
       
       <div className="py-4 text-center">
         <p className="text-sm text-muted-foreground">{user.bio || 'No bio yet.'}</p>

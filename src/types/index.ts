@@ -9,6 +9,7 @@ export interface User {
   photoURL: string | null;
   lastSeen?: Timestamp;
   status?: 'online' | 'offline';
+  statusMessage?: string; // New field for custom status
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
   notificationSounds?: boolean;
