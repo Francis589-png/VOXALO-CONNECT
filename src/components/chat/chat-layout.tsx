@@ -129,7 +129,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
               </TabsTrigger>
               <TabsTrigger value="watch">
                 <Clapperboard className='h-4 w-4 mr-2'/>
-                Watch
+                Voxalo Movies
               </TabsTrigger>
               <TabsTrigger value="explore">
                 Explore
