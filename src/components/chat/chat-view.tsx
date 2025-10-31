@@ -37,7 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
-import type { Message, User } from '@/types';
+import type { Message, User, Chat } from '@/types';
 import { cn, getChatId } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
@@ -54,20 +54,30 @@ const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 interface ChatViewProps {
   currentUser: FirebaseUser;
-  selectedUser: User | null;
+  selectedChat: Chat | null;
 }
 
 function ReadReceipt({
   isOwnMessage,
-  recipientHasRead,
+  readBy,
+  chat,
 }: {
   isOwnMessage: boolean;
-  recipientHasRead: boolean;
+  readBy: string[] | undefined;
+  chat: Chat;
 }) {
   if (!isOwnMessage) return null;
 
-  if (recipientHasRead) {
+  const allRead = chat.users.every(
+    (userId) => userId === isOwnMessage || readBy?.includes(userId)
+  );
+
+  if (allRead) {
     return <CheckCheck className="h-4 w-4 text-blue-500" />;
+  }
+  
+  if(readBy && readBy.length > 0) {
+    return <CheckCheck className="h-4 w-4 text-muted-foreground" />;
   }
 
   return <Check className="h-4 w-4 text-muted-foreground" />;
@@ -76,23 +86,25 @@ function ReadReceipt({
 function MessageBubble({
   message,
   isOwnMessage,
-  recipientHasRead,
   onDeleteForMe,
   onDeleteForEveryone,
   onReact,
   currentUser,
+  chat,
+  sender,
 }: {
   message: Message;
   isOwnMessage: boolean;
-  recipientHasRead: boolean;
   onDeleteForMe: (messageId: string) => void;
   onDeleteForEveryone: (messageId: string) => void;
   onReact: (messageId: string, emoji: string) => void;
   currentUser: FirebaseUser;
+  chat: Chat;
+  sender: User | undefined;
 }) {
-  const date = message.timestamp?.toDate
+  const date = (message.timestamp as Timestamp)?.toDate
     ? (message.timestamp as Timestamp).toDate()
-    : (message.timestamp as Date);
+    : new Date();
   const formattedDate = date
     ? formatRelative(date, new Date())
     : '';
@@ -115,13 +127,24 @@ function MessageBubble({
         isOwnMessage ? 'flex-row-reverse' : 'flex-row'
       )}
     >
+       {!isOwnMessage && chat.isGroup && (
+        <Avatar className="h-8 w-8">
+            <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
+            <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
+        </Avatar>
+       )}
       <div
         className={cn(
           'max-w-md rounded-lg p-2.5 flex flex-col',
-          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card'
+          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card',
+          chat.isGroup && !isOwnMessage ? 'rounded-tl-none' : '',
+          chat.isGroup && isOwnMessage ? 'rounded-tr-none' : '',
         )}
       >
         <div className="relative">
+             {chat.isGroup && !isOwnMessage && (
+                <p className="text-xs font-semibold mb-1 text-primary">{sender?.displayName}</p>
+            )}
             {renderContent()}
             {hasReactions && (
                 <div className={cn("absolute -bottom-3 flex gap-1 p-0.5 rounded-full bg-card border shadow-sm", isOwnMessage ? "right-2" : "left-2")}>
@@ -146,7 +169,8 @@ function MessageBubble({
           </span>
           <ReadReceipt
             isOwnMessage={isOwnMessage}
-            recipientHasRead={recipientHasRead}
+            readBy={message.readBy}
+            chat={chat}
           />
         </div>
       </div>
@@ -200,49 +224,48 @@ function MessageBubble({
   );
 }
 
-export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
+export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { friendships } = useFriends();
-  const [selectedUserData, setSelectedUserData] = useState<User | null>(null);
+  const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const canChat =
-    selectedUser &&
-    friendships.some((f) => f.friend.uid === selectedUser.uid);
-
-  const chatId =
-    currentUser && selectedUser
-      ? getChatId(currentUser.uid, selectedUser.uid)
-      : null;
-
-    useEffect(() => {
-        if (!currentUser?.uid) return;
-        const userDocRef = doc(db, 'users', currentUser.uid);
-        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-            setCurrentUserData(docSnap.data() as User);
-            }
-        });
-        return () => unsubscribe();
-    }, [currentUser?.uid]);
+    selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup;
+  
+  const chatId = selectedChat?.id;
 
   useEffect(() => {
-    if (selectedUser) {
-      const userDocRef = doc(db, 'users', selectedUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+    if (selectedChat) {
+      const chatDocRef = doc(db, 'chats', selectedChat.id);
+      const unsubscribe = onSnapshot(chatDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          setSelectedUserData(docSnap.data() as User);
+          setChatData({ id: docSnap.id, ...docSnap.data() } as Chat);
         }
       });
       return () => unsubscribe();
     }
-  }, [selectedUser]);
+  }, [selectedChat]);
+
+
+  useEffect(() => {
+      if (!currentUser?.uid) return;
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+          if (docSnap.exists()) {
+          setCurrentUserData(docSnap.data() as User);
+          }
+      });
+      return () => unsubscribe();
+  }, [currentUser?.uid]);
+
 
   useEffect(() => {
     if (!chatId) {
@@ -260,9 +283,11 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
 
       setMessages(messagesData);
 
+      const otherUser = chatData?.users.find(uid => uid !== currentUser.uid);
+
       messagesData.forEach((message) => {
         if (
-          message.senderId === selectedUser?.uid &&
+          message.senderId !== currentUser.uid &&
           !message.readBy?.includes(currentUser.uid)
         ) {
           const messageRef = doc(
@@ -280,7 +305,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     });
 
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, selectedUser?.uid]);
+  }, [chatId, currentUser.uid, chatData?.users]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -293,57 +318,79 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         }
       }, 100);
     }
-  }, [messages, selectedUser]);
+  }, [messages, selectedChat]);
   
   const addMessageToChat = async (messageData: Omit<Message, 'id'>) => {
-    if (!chatId || !selectedUser) return;
+    if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     await addDoc(messagesRef, messageData);
     
     const chatRef = doc(db, 'chats', chatId);
-    await setDoc(
-      chatRef,
-      {
-        users: [currentUser.uid, selectedUser.uid],
-        userInfos: [
-          {
-            uid: currentUser.uid,
-            displayName: currentUser.displayName,
-            email: currentUser.email,
-            photoURL: currentUser.photoURL,
-          },
-          {
-            uid: selectedUser.uid,
-            displayName: selectedUser.displayName,
-            email: selectedUser.email,
-            photoURL: selectedUser.photoURL,
-          },
-        ],
+    const updatePayload: any = {
         lastMessage: {
           text: messageData.type === 'audio' ? 'Audio message' : messageData.text,
           senderId: messageData.senderId,
           timestamp: serverTimestamp(),
         },
-      },
-      { merge: true }
-    );
+    }
+
+    if (chatData?.isGroup) {
+        updatePayload['userInfos'] = chatData.userInfos;
+    } else {
+         const otherUserId = chatData?.users.find(u => u !== currentUser.uid)
+         const otherUser = chatData?.userInfos.find(u => u.uid === otherUserId);
+         const me = chatData?.userInfos.find(u => u.uid === currentUser.uid);
+         updatePayload['userInfos'] = [me, otherUser];
+    }
+    
+    await updateDoc(chatRef, updatePayload);
+  };
+  
+  const handleTyping = (text: string) => {
+    if (!chatId || chatData?.isGroup) return;
+
+    const chatRef = doc(db, 'chats', chatId);
+
+    if (text.length > 0) {
+      updateDoc(chatRef, {
+        typing: arrayUnion(currentUser.uid),
+      });
+
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      typingTimeoutRef.current = setTimeout(() => {
+        updateDoc(chatRef, {
+          typing: arrayRemove(currentUser.uid),
+        });
+      }, 3000);
+    } else {
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+        updateDoc(chatRef, {
+            typing: arrayRemove(currentUser.uid),
+        });
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !chatData) return;
 
     const messageData: Omit<Message, 'id'> = {
         type: 'text',
         text: newMessage,
         senderId: currentUser.uid,
         timestamp: serverTimestamp(),
-        readBy: [],
+        readBy: [currentUser.uid],
         deletedFor: [],
     };
     
     setNewMessage('');
+    handleTyping('');
     await addMessageToChat(messageData);
   };
 
@@ -357,7 +404,7 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         const mediaRecorder = new MediaRecorder(stream, options);
         mediaRecorderRef.current = mediaRecorder;
         
-        const audioChunks: BlobPart[] = [];
+        const audioChunks: Blob[] = [];
         mediaRecorder.ondataavailable = (event) => {
             audioChunks.push(event.data);
         };
@@ -382,13 +429,15 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
             
             const audioURL = await uploadFile(audioFile);
+            
+            if (!chatData) return;
 
             const messageData: Omit<Message, 'id'> = {
                 type: 'audio',
                 audioURL,
                 senderId: currentUser.uid,
                 timestamp: serverTimestamp(),
-                readBy: [],
+                readBy: [currentUser.uid],
                 deletedFor: [],
             };
             await addMessageToChat(messageData);
@@ -400,7 +449,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       }
     }
   };
-
 
   const handleDeleteForMe = async (messageId: string) => {
     if (!chatId) return;
@@ -427,7 +475,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         const existingReaction = reactions[emoji] || [];
 
         if (existingReaction.includes(currentUser.uid)) {
-            // User is removing their reaction
             const newReactions = {
                 ...reactions,
                 [emoji]: existingReaction.filter(uid => uid !== currentUser.uid)
@@ -438,7 +485,6 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             await updateDoc(messageRef, { reactions: newReactions });
 
         } else {
-            // User is adding a reaction
             const newReactions = {
                 ...reactions,
                 [emoji]: [...existingReaction, currentUser.uid]
@@ -448,8 +494,37 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     }
   };
 
+  const getChatName = () => {
+    if (!chatData) return '';
+    if (chatData.isGroup) return chatData.name;
+    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
+    return otherUser?.displayName || '';
+  }
 
-  if (!selectedUser) {
+  const getChatPhoto = () => {
+    if (!chatData) return '';
+    if (chatData.isGroup) return chatData.photoURL;
+    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
+    return otherUser?.photoURL || '';
+  }
+  
+  const getChatSubtext = () => {
+    if (!chatData) return null;
+
+    if (chatData.isGroup) {
+      return `${chatData.users.length} members`;
+    }
+
+    const otherUserId = chatData.users.find(u => u !== currentUser.uid);
+    if (chatData.typing?.includes(otherUserId!)) {
+      return <span className="italic text-primary">typing...</span>;
+    }
+    
+    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
+    return otherUser?.bio;
+  }
+  
+  if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-muted">
         <div className="text-center">
@@ -463,6 +538,8 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
     );
   }
   
+  const otherUser = chatData?.userInfos.find(u => u.uid !== currentUser.uid);
+
   return (
     <div className="flex h-full max-h-screen flex-col relative">
       {currentUserData?.chatWallpaper && (
@@ -477,14 +554,14 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
       <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
         <Avatar className="h-10 w-10">
           <AvatarImage
-            src={selectedUser.photoURL!}
-            alt={selectedUser.displayName!}
+            src={getChatPhoto()!}
+            alt={getChatName()!}
           />
-          <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
+          <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
         </Avatar>
         <div className='flex-1'>
-          <h2 className="text-lg font-semibold">{selectedUser.displayName}</h2>
-          <p className="text-sm text-muted-foreground">{selectedUserData?.bio}</p>
+          <h2 className="text-lg font-semibold">{getChatName()}</h2>
+          <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
         </div>
       </div>
       {canChat ? (
@@ -493,19 +570,19 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
             <div className="p-6 space-y-4">
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
-                const recipientHasRead =
-                  selectedUserData?.readReceiptsEnabled !== false &&
-                  !!message.readBy?.includes(selectedUser.uid);
+                const sender = chatData?.userInfos.find(u => u.uid === message.senderId);
+
                 return (
                   <MessageBubble
                     key={message.id}
                     message={message}
                     isOwnMessage={isOwnMessage}
-                    recipientHasRead={recipientHasRead}
                     onDeleteForMe={handleDeleteForMe}
                     onDeleteForEveryone={handleDeleteForEveryone}
                     onReact={handleReact}
                     currentUser={currentUser}
+                    chat={chatData!}
+                    sender={sender}
                   />
                 );
               })}
@@ -528,7 +605,10 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
                 >
                     <Input
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => {
+                            setNewMessage(e.target.value);
+                            handleTyping(e.target.value);
+                        }}
                         placeholder={'Type a message...'}
                         autoComplete="off"
                     />
@@ -552,11 +632,11 @@ export default function ChatView({ currentUser, selectedUser }: ChatViewProps) {
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
           <div className="text-center p-4">
              <Avatar className="h-24 w-24 mx-auto mb-4">
-                <AvatarImage src={selectedUser.photoURL!} alt={selectedUser.displayName!} />
-                <AvatarFallback>{selectedUser.displayName?.[0]}</AvatarFallback>
+                <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
+                <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>
-            <h3 className="text-xl font-semibold">{selectedUser.displayName}</h3>
-            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{selectedUserData?.bio}</p>
+            <h3 className="text-xl font-semibold">{getChatName()}</h3>
+            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{otherUser?.bio}</p>
             <p className="text-muted-foreground text-sm mt-4">
               You are not friends with this user yet.
               Accept their friend request or send one to start chatting.

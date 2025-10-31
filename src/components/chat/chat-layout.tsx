@@ -1,14 +1,13 @@
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { LogOut, Search, User as UserIcon } from 'lucide-react';
+import { LogOut, Search, User as UserIcon, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
-import type { User } from '@/types';
+import type { Chat, User } from '@/types';
 import ChatView from './chat-view';
 import { Icons } from '../icons';
 import { Button } from '../ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Input } from '../ui/input';
 import { Separator } from '../ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -24,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import CreateGroupDialog from './create-group-dialog';
 
 interface ChatLayoutProps {
   currentUser: FirebaseUser;
@@ -31,8 +31,9 @@ interface ChatLayoutProps {
 
 export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -45,8 +46,9 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
     return () => unsubscribe();
   }, [currentUser]);
 
-  const handleSelectUser = (user: User) => {
-    setSelectedUser(user);
+  const handleSelectChat = (chat: Chat) => {
+    setSelectedChat(chat);
+    setIsCreatingGroup(false);
   };
 
   const filteredUsers = users.filter((u) =>
@@ -116,10 +118,20 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           </div>
           <Separator />
           <TabsContent value="contacts" className="flex-1 overflow-y-auto mt-0">
+            <CreateGroupDialog currentUser={currentUser} onGroupCreated={handleSelectChat}>
+                <Button variant="ghost" className="w-full justify-start gap-3 p-4 text-left h-auto rounded-none">
+                    <div className='p-2 bg-muted rounded-full'>
+                        <Users className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="font-semibold">New Group</p>
+                    </div>
+                </Button>
+            </CreateGroupDialog>
             <ContactsList
               users={filteredUsers}
-              selectedUser={selectedUser}
-              onSelectUser={handleSelectUser}
+              selectedChat={selectedChat}
+              onSelectChat={handleSelectChat}
             />
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
@@ -128,7 +140,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
         </Tabs>
       </div>
       <div className="hidden flex-1 md:flex">
-        <ChatView currentUser={currentUser} selectedUser={selectedUser} />
+        <ChatView currentUser={currentUser} selectedChat={selectedChat} />
       </div>
     </div>
   );

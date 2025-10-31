@@ -18,7 +18,7 @@ export interface Message {
   id: string;
   text?: string;
   senderId: string;
-  timestamp: Timestamp | Date; // Allow Date for local AI messages
+  timestamp: Timestamp | Date;
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
@@ -31,6 +31,10 @@ export interface Chat {
   users: string[];
   userInfos: User[];
   lastMessage?: Message;
+  isGroup?: boolean;
+  name?: string;
+  photoURL?: string;
+  typing?: string[];
 }
 
 export interface FriendRequest {
@@ -49,5 +53,3 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
-
-    
