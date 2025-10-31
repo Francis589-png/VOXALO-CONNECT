@@ -44,11 +44,7 @@ const assistantFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await ai.generate({
-      prompt: {
-        history: input.history,
-        // The last message from the user is the new prompt
-        messages: [input.history[input.history.length - 1]],
-      },
+      prompt: input.history,
       model: 'googleai/gemini-2.5-flash',
       config: {
         temperature: 0.7,
