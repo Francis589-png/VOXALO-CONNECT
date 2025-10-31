@@ -1,4 +1,3 @@
-
 'use client';
 
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
@@ -13,25 +12,26 @@ export const requestNotificationPermission = async (userId: string) => {
   
   const messaging = getMessaging(app);
 
-  const permission = await Notification.requestPermission();
-  if (permission === 'granted') {
-    console.log('Notification permission granted.');
-    try {
-      const currentToken = await getToken(messaging, {
-        vapidKey: 'BPE1_m9i8tu_D6vj8vso-p3c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23',
-      });
-      if (currentToken) {
-        await updateDoc(doc(db, 'users', userId), {
-          fcmToken: currentToken,
+  try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log('Notification permission granted.');
+        const currentToken = await getToken(messaging, {
+            // Replace with your actual VAPID key
+            vapidKey: 'BPE1_m9i8tu_D6vj8vso-p3c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23',
         });
+        if (currentToken) {
+            await updateDoc(doc(db, 'users', userId), {
+            fcmToken: currentToken,
+            });
+        } else {
+            console.log('No registration token available. Request permission to generate one.');
+        }
       } else {
-        console.log('No registration token available. Request permission to generate one.');
+        console.log('Unable to get permission to notify.');
       }
-    } catch (err) {
+  } catch (err) {
       console.log('An error occurred while retrieving token. ', err);
-    }
-  } else {
-    console.log('Unable to get permission to notify.');
   }
 };
 

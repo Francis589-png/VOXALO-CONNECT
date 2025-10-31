@@ -1,49 +1,64 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { onMessageListener } from '@/lib/firebase-messaging';
 import { useToast } from '@/hooks/use-toast';
 import type { MessagePayload } from 'firebase/messaging';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function FirebaseMessagingProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
 
   useEffect(() => {
-    const handleMessage = async () => {
-      try {
-        const payload = await onMessageListener() as MessagePayload;
-        if (payload.notification) {
-          const { title, body, icon } = payload.notification;
-          const chatId = payload.data?.chatId;
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+        const unsubscribe = onMessage(onMessageListener(), (payload: MessagePayload) => {
+            if (payload.notification) {
+                const { title, body } = payload.notification;
+                const chatId = payload.data?.chatId;
+                const currentChatId = searchParams.get('chatId');
 
-          toast({
-            title: title,
-            description: body,
-            action: chatId ? (
-              <button
-                onClick={() => router.push(`/?chatId=${chatId}`)}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Open
-              </button>
-            ) : undefined,
-          });
-          
-           if (payload.data?.soundEnabled === 'true') {
-             const audio = new Audio('/notification.mp3');
-             audio.play().catch(e => console.error("Error playing notification sound:", e));
-           }
-        }
-      } catch (error) {
-        console.error('Error handling foreground message:', error);
-      }
-    };
-    
-    handleMessage();
-  }, [toast, router]);
+                // Don't show notification if user is already in the chat
+                if (pathname === '/' && chatId === currentChatId) {
+                    return;
+                }
+
+                toast({
+                    title: title,
+                    description: body,
+                    action: chatId ? (
+                    <button
+                        onClick={() => router.push(`/?chatId=${chatId}`)}
+                        className="text-sm font-medium text-primary hover:underline"
+                    >
+                        Open
+                    </button>
+                    ) : undefined,
+                });
+
+                if (payload.data?.soundEnabled === 'true' && user) {
+                     // We need to fetch the user's latest setting from the DB
+                     const playSound = async () => {
+                        const userDoc = await (await import('firebase/firestore')).getDoc((await import('firebase/firestore')).doc(db, 'users', user.uid));
+                        if(userDoc.exists() && userDoc.data().notificationSounds) {
+                            const audio = new Audio('/notification.mp3');
+                            audio.play().catch(e => console.error("Error playing notification sound:", e));
+                        }
+                     }
+                     playSound();
+                }
+            }
+        });
+
+        return () => unsubscribe();
+    }
+  }, [toast, router, pathname, searchParams, user]);
+
 
   return <>{children}</>;
 }
