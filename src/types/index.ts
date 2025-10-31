@@ -32,10 +32,10 @@ export interface Message {
     messageId: string;
     senderId: string;
     senderName: string;
-    text?: string;
+    text: string | null;
     type: 'text' | 'image' | 'file';
-    imageURL?: string;
-    fileName?: string;
+    imageURL: string | null;
+    fileName: string | null;
   };
   editedAt?: Timestamp;
 }
@@ -68,3 +68,6 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
+
+
+    

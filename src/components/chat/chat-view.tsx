@@ -517,10 +517,10 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             messageId: replyingTo.id,
             senderId: replyingTo.senderId,
             senderName: repliedToSender?.displayName || 'Unknown User',
-            text: replyingTo.text,
+            text: replyingTo.text || null,
             type: replyingTo.type,
-            imageURL: replyingTo.imageURL,
-            fileName: replyingTo.fileName,
+            imageURL: replyingTo.imageURL || null,
+            fileName: replyingTo.fileName || null,
         };
     }
 
@@ -890,5 +890,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
+    
 
     
