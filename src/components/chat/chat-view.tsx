@@ -35,7 +35,7 @@ import {
   Users as UsersIcon,
   Search,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
 import Image from 'next/image';
 
@@ -902,8 +902,3 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
-
-    
-
-    
-
