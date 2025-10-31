@@ -25,19 +25,11 @@ const getValidMoves = (board: Board, row: number, col: number): Move[] => {
       : [{ r: 1, c: -1 }, { r: 1, c: 1 }];
   
   if (isKing) {
-    directions.push(...directions.map(d => ({ r: -d.r, c: -d.c })));
+    directions.push({r: 1, c: -1}, {r: 1, c: 1}, {r: -1, c: -1}, {r: -1, c: 1});
   }
 
-  // Regular moves
-  for (const dir of directions) {
-    const newRow = row + dir.r;
-    const newCol = col + dir.c;
-    if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !board[newRow][newCol]) {
-      moves.push({ from: { row, col }, to: { row: newRow, col: newCol }, isJump: false });
-    }
-  }
-
-  // Jumps
+  // Jumps first - if a jump is available, it must be taken.
+  const jumpMoves: Move[] = [];
   for (const dir of directions) {
     const jumpRow = row + dir.r * 2;
     const jumpCol = col + dir.c * 2;
@@ -50,9 +42,22 @@ const getValidMoves = (board: Board, row: number, col: number): Move[] => {
       board[betweenRow][betweenCol] &&
       board[betweenRow][betweenCol]?.player !== player
     ) {
-      moves.push({ from: { row, col }, to: { row: jumpRow, col: jumpCol }, isJump: true, jumpedPiece: { row: betweenRow, col: betweenCol } });
+      jumpMoves.push({ from: { row, col }, to: { row: jumpRow, col: jumpCol }, isJump: true, jumpedPiece: { row: betweenRow, col: betweenCol } });
     }
   }
+
+  if (jumpMoves.length > 0) return jumpMoves;
+
+
+  // Regular moves
+  for (const dir of directions) {
+    const newRow = row + dir.r;
+    const newCol = col + dir.c;
+    if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8 && !board[newRow][newCol]) {
+      moves.push({ from: { row, col }, to: { row: newRow, col: newCol }, isJump: false });
+    }
+  }
+  
   return moves;
 };
 
@@ -68,8 +73,22 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
     if (!isMyTurn || game.status === 'finished') return;
 
     const piece = game.boardState[row][col];
+    
+    // Check for mandatory jumps for the current player
+    const allPlayerPieces = game.boardState.flatMap((r, rIdx) => r.map((p, cIdx) => ({ piece: p, row: rIdx, col: cIdx })))
+        .filter(item => item.piece && item.piece.player === game.currentPlayer);
+
+    const mandatoryJumps = allPlayerPieces.flatMap(p => getValidMoves(game.boardState, p.row, p.col)).filter(m => m.isJump);
 
     if (piece && piece.player === game.currentPlayer) {
+        if (mandatoryJumps.length > 0 && !mandatoryJumps.some(m => m.from.row === row && m.from.col === col)) {
+            toast({
+                title: "Mandatory Jump",
+                description: "You must make a jump move.",
+                variant: 'destructive'
+            });
+            return;
+        }
       setSelectedPiece({ row, col });
       const moves = getValidMoves(game.boardState, row, col);
       setValidMoves(moves);
@@ -98,9 +117,23 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
     newBoard[move.to.row][move.to.col] = pieceToMove;
     newBoard[move.from.row][move.from.col] = null;
 
+    let jumpedPiece = false;
     if (move.isJump && move.jumpedPiece) {
       newBoard[move.jumpedPiece.row][move.jumpedPiece.col] = null;
+      jumpedPiece = true;
     }
+
+    // Check for multi-jump
+    if(jumpedPiece) {
+        const nextJumps = getValidMoves(newBoard, move.to.row, move.to.col).filter(m => m.isJump);
+        if (nextJumps.length > 0) {
+             await updateGameState(game.id, newBoard, game.currentPlayer);
+             setSelectedPiece({row: move.to.row, col: move.to.col});
+             setValidMoves(nextJumps);
+             return;
+        }
+    }
+
 
     setSelectedPiece(null);
     setValidMoves([]);
@@ -120,18 +153,19 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
   const renderPiece = (piece: Piece) => {
     return (
         <div className={cn(
-            "h-10 w-10 md:h-12 md:w-12 rounded-full flex items-center justify-center shadow-lg",
-            piece.player === 'red' ? 'bg-rose-600' : 'bg-zinc-800 dark:bg-zinc-600',
+            "h-[80%] w-[80%] rounded-full flex items-center justify-center cursor-pointer transition-transform duration-200 hover:scale-105",
+            piece.player === 'red' ? 'bg-rose-600' : 'bg-zinc-800 dark:bg-zinc-700',
+            'shadow-[inset_0_4px_6px_rgba(255,255,255,0.2),_inset_0_-4px_6px_rgba(0,0,0,0.3),_0_4px_4px_rgba(0,0,0,0.4)]'
         )}>
-            {piece.isKing && <Crown className='h-5 w-5 md:h-6 md:w-6 text-yellow-400' />}
+            {piece.isKing && <Crown className='h-[60%] w-[60%] text-yellow-400 drop-shadow-lg' />}
         </div>
     )
   }
 
   return (
-    <div className='flex flex-col border-4 border-card rounded-lg overflow-hidden shadow-2xl'>
+    <div className='flex flex-col border-4 border-card rounded-lg overflow-hidden shadow-2xl aspect-square w-full max-w-[500px] mx-auto'>
       {game.boardState.map((row, rowIndex) => (
-        <div key={rowIndex} className="flex">
+        <div key={rowIndex} className="flex flex-1">
           {row.map((square, colIndex) => {
             const isLightSquare = (rowIndex + colIndex) % 2 === 0;
             const isSelected = selectedPiece?.row === rowIndex && selectedPiece?.col === colIndex;
@@ -141,9 +175,9 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
               <div
                 key={colIndex}
                 className={cn(
-                  'w-12 h-12 md:w-16 md:h-16 flex items-center justify-center cursor-pointer',
-                  isLightSquare ? 'bg-muted/50' : 'bg-muted',
-                  isMyTurn && 'hover:bg-accent/80 transition-colors',
+                  'w-full h-full flex items-center justify-center',
+                  isLightSquare ? 'bg-muted/30' : 'bg-muted/90',
+                  isMyTurn && !isLightSquare && 'hover:bg-accent/80 transition-colors',
                   isSelected && 'bg-primary/50',
                   isValidMove && 'bg-green-500/50'
                 )}

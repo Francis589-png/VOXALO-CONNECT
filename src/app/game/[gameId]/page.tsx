@@ -22,12 +22,12 @@ interface PlayerDisplayProps {
 
 function PlayerDisplay({ player, isCurrent, isWinner }: PlayerDisplayProps) {
     return (
-        <div className="flex flex-col items-center gap-2 p-4 rounded-lg bg-card/80 border w-40">
-             <Avatar className="h-16 w-16 border-4 border-transparent data-[current=true]:border-primary transition-all">
+        <div className="flex flex-col items-center gap-2 p-2 sm:p-4 rounded-lg bg-card/80 border w-32 sm:w-40">
+             <Avatar className="h-12 w-12 sm:h-16 sm:w-16 border-4 border-transparent data-[current=true]:border-primary transition-all">
                 <AvatarImage src={player.photoURL || undefined} alt={player.displayName!} />
                 <AvatarFallback>{player.displayName?.[0]}</AvatarFallback>
             </Avatar>
-            <p className="font-semibold truncate">{player.displayName}</p>
+            <p className="font-semibold truncate text-sm sm:text-base">{player.displayName}</p>
             {isWinner && (
                 <div className='flex items-center gap-1 text-yellow-500 font-bold'>
                     <Crown className='h-5 w-5' />
@@ -74,8 +74,8 @@ export default function GamePage({ params }: { params: { gameId: string } }) {
   if(!redPlayer || !blackPlayer) return <Loading />;
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center p-4 chat-background">
-        <div className="absolute top-4 left-4">
+    <div className="flex min-h-screen w-full flex-col items-center justify-center p-2 sm:p-4 chat-background">
+        <div className="absolute top-4 left-4 z-10">
             <Button variant="ghost" size="icon" asChild>
                 <Link href="/">
                     <ArrowLeft className="h-5 w-5" />
@@ -83,7 +83,7 @@ export default function GamePage({ params }: { params: { gameId: string } }) {
                 </Link>
             </Button>
         </div>
-        <div className='flex flex-col items-center gap-4'>
+        <div className='flex flex-col items-center gap-2 sm:gap-4'>
             <PlayerDisplay 
                 player={blackPlayer} 
                 isCurrent={game.currentPlayer === 'black'} 
