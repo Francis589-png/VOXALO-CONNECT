@@ -60,4 +60,3 @@ const assistantFlow = ai.defineFlow(
     return output?.text ?? 'Sorry, I could not generate a response.';
   }
 );
-
