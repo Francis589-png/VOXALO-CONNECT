@@ -74,6 +74,7 @@ function ReadReceipt({
   readBy,
   chat,
   userInfos,
+  currentUser,
 }: {
   isOwnMessage: boolean;
   readBy: string[] | undefined;
@@ -111,6 +112,7 @@ function ReadReceipt({
                                 <Avatar className='h-7 w-7'>
                                     <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
                                     <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
+
                                 </Avatar>
                                 <span className='text-sm'>{user.displayName}</span>
                             </div>
@@ -219,7 +221,7 @@ function MessageBubble({
                 href={message.fileURL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className='flex items-center gap-3 bg-muted/50 p-3 rounded-md hover:bg-muted'
+                className='flex items-center gap-3 bg-background/50 p-3 rounded-md hover:bg-background'
             >
                 <FileIcon className="h-8 w-8 text-muted-foreground" />
                 <div className='flex-1'>
@@ -248,7 +250,7 @@ function MessageBubble({
     >
        {(!isOwnMessage && chat.isGroup) && (
         <UserProfileCard user={sender}>
-            <Avatar className="h-8 w-8 cursor-pointer">
+            <Avatar className="h-8 w-8 cursor-pointer shadow-lg-3d rounded-full">
                 <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
                 <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
             </Avatar>
@@ -257,7 +259,7 @@ function MessageBubble({
       <div
         className={cn(
           'max-w-md rounded-lg flex flex-col',
-          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card',
+          isOwnMessage ? 'bg-primary text-primary-foreground shadow-md-3d' : 'bg-card shadow-md-3d',
           chat.isGroup && !isOwnMessage ? 'rounded-tl-none' : '',
           chat.isGroup && isOwnMessage ? 'rounded-tr-none' : '',
           bubblePadding,
@@ -695,7 +697,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
   if (!selectedChat) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-muted">
+      <div className="flex h-full flex-col items-center justify-center bg-background">
         <div className="text-center">
           <MessageCircleIcon className="mx-auto h-16 w-16 text-muted-foreground" />
           <h2 className="mt-2 text-2xl font-semibold">VoxaLo Connect</h2>
@@ -725,7 +727,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             </Button>
         )}
         <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-10 w-10 shadow-lg-3d rounded-full">
                 <AvatarImage
                     src={getChatPhoto()!}
                     alt={getChatName()!}
@@ -775,7 +777,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
       </div>
       {canChat ? (
         <>
-          <ScrollArea className="flex-1 z-10" ref={scrollAreaRef}>
+          <ScrollArea className="flex-1 z-0" ref={scrollAreaRef}>
              {filteredMessages.length === 0 && searchQuery ? (
                 <div className="text-center text-muted-foreground p-8">
                     <p>No messages found for "{searchQuery}"</p>
@@ -806,7 +808,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 </div>
              )}
           </ScrollArea>
-          <div className="border-t p-4 bg-background z-10">
+          <div className="border-t p-4 bg-background/80 backdrop-blur-sm z-10">
             {replyingTo && (
                 <div className="flex items-center justify-between bg-muted p-2 rounded-t-md text-sm">
                     <div className="flex-1 overflow-hidden">
@@ -859,7 +861,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
       ) : (
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
           <div className="text-center p-4">
-             <Avatar className="h-24 w-24 mx-auto mb-4">
+             <Avatar className="h-24 w-24 mx-auto mb-4 shadow-lg-3d rounded-full">
                 <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>

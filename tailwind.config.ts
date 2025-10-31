@@ -71,6 +71,16 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      boxShadow: {
+        'sm-3d': '1px 1px 2px #bebebe, -1px -1px 2px #ffffff',
+        'md-3d': '3px 3px 6px #bebebe, -3px -3px 6px #ffffff',
+        'lg-3d': '8px 8px 16px #bebebe, -8px -8px 16px #ffffff',
+        'inset-3d': 'inset 2px 2px 5px #bebebe, inset -2px -2px 5px #ffffff',
+        'dark-sm-3d': '1px 1px 2px #1c1c1c, -1px -1px 2px #2a2a2a',
+        'dark-md-3d': '3px 3px 6px #1c1c1c, -3px -3px 6px #2a2a2a',
+        'dark-lg-3d': '8px 8px 16px #1c1c1c, -8px -8px 16px #2a2a2a',
+        'dark-inset-3d': 'inset 2px 2px 5px #1c1c1c, inset -2px -2px 5px #2a2a2a',
+      },
       keyframes: {
         'accordion-down': {
           from: {
@@ -95,5 +105,32 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+    function ({ addUtilities, theme, e }: any) {
+      const lightShadows = theme('boxShadow');
+      const darkShadows = {
+        'sm-3d': '1px 1px 2px #19202a, -1px -1px 2px #27303e',
+        'md-3d': '3px 3px 6px #19202a, -3px -3px 6px #27303e',
+        'lg-3d': '8px 8px 16px #19202a, -8px -8px 16px #27303e',
+        'inset-3d': 'inset 2px 2px 5px #19202a, inset -2px -2px 5px #27303e',
+      };
+      
+      const lightUtilities = Object.fromEntries(
+        Object.entries(lightShadows).filter(([key]) => key.includes('-3d')).map(([key, value]) => [
+          `.${e(`shadow-${key}`)}`,
+          { 'box-shadow': value },
+        ])
+      );
+
+      const darkUtilities = Object.fromEntries(
+        Object.entries(darkShadows).map(([key, value]) => [
+          `.dark .${e(`shadow-${key}`)}`,
+          { 'box-shadow': value },
+        ])
+      );
+
+      addUtilities({ ...lightUtilities, ...darkUtilities });
+    },
+  ],
 } satisfies Config;

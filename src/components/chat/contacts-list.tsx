@@ -66,12 +66,12 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
         <button
             onClick={() => onSelectChat(chat)}
             className={cn(
-                'flex items-center gap-3 p-4 text-left w-full',
-                isSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                'flex items-center gap-3 p-4 text-left w-full transition-colors',
+                isSelected ? 'bg-background shadow-inset-3d' : 'hover:bg-background/50'
             )}
             >
             <div className="relative">
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10 shadow-lg-3d rounded-full">
                     <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
                     <AvatarFallback>
                         {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
@@ -85,7 +85,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
                 <div className='flex items-center justify-between'>
                     <p className="font-semibold truncate">{getChatName()}</p>
                     {unreadCount > 0 && (
-                        <Badge variant="default" className="h-5 px-2 text-xs">
+                        <Badge variant="default" className="h-5 px-2 text-xs shadow-sm-3d">
                             {unreadCount}
                         </Badge>
                     )}
