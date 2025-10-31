@@ -57,10 +57,10 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm glass-card">
+    <Card className="w-full max-w-md glass-card">
       <CardHeader className="text-center">
         <div className="mb-4 flex justify-center">
-            <Icons.logo className="h-10 w-10 text-primary" />
+            <Icons.logo className="h-16 w-16 text-primary" />
         </div>
         <CardTitle className="text-2xl">Welcome Back!</CardTitle>
         <CardDescription>Sign in to continue to VoxaLo Connect</CardDescription>

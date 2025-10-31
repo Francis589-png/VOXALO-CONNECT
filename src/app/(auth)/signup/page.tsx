@@ -105,7 +105,7 @@ export default function SignupPage() {
     <Card className="w-full max-w-md glass-card">
       <CardHeader className="text-center">
         <div className="mb-4 flex justify-center">
-            <Icons.logo className="h-10 w-10 text-primary" />
+            <Icons.logo className="h-16 w-16 text-primary" />
         </div>
         <CardTitle className="text-2xl">Create an Account</CardTitle>
         <CardDescription>Join VoxaLo Connect today!</CardDescription>
