@@ -69,5 +69,31 @@ export type Friendship = {
   friend: User;
 };
 
+// --- Game Types ---
 
-    
+export type Player = 'red' | 'black';
+
+export type Piece = {
+    player: Player;
+    isKing: boolean;
+}
+
+export type Square = Piece | null;
+
+export type Board = Square[][];
+
+export interface Game {
+    id: string;
+    type: 'checkers';
+    players: {
+        red: string; // user.uid
+        black: string; // user.uid
+    };
+    playerInfos: User[];
+    boardState: Board;
+    currentPlayer: Player;
+    status: 'active' | 'finished' | 'pending';
+    winner?: Player;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+}

@@ -1,7 +1,7 @@
 
 'use client';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { LogOut, Search as SearchIcon, User as UserIcon, Users } from 'lucide-react';
+import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
@@ -28,6 +28,7 @@ import CreateGroupDialog from './create-group-dialog';
 import { requestNotificationPermission } from '@/lib/firebase-messaging';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import GamesPage from './games-page';
 
 
 interface ChatLayoutProps {
@@ -117,11 +118,15 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
           <div className='p-4'>
-            <TabsList className="w-full">
-              <TabsTrigger value="contacts" className="w-full">
+            <TabsList className="w-full grid grid-cols-3">
+              <TabsTrigger value="contacts">
                 Contacts
               </TabsTrigger>
-              <TabsTrigger value="explore" className="w-full">
+              <TabsTrigger value="games">
+                <Swords className='h-4 w-4 mr-2'/>
+                Games
+              </TabsTrigger>
+              <TabsTrigger value="explore">
                 Explore
               </TabsTrigger>
             </TabsList>
@@ -154,6 +159,9 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
               onSelectChat={handleSelectChat}
               search={search}
             />
+          </TabsContent>
+          <TabsContent value="games" className="flex-1 overflow-y-auto mt-0">
+            <GamesPage />
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />
