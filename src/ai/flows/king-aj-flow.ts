@@ -46,16 +46,11 @@ When responding to users, maintain your persona. Be knowledgeable and slightly m
 
 Here is the conversation history:
 {{#each history}}
-  {{#if (eq role 'user')}}
-    User: {{{content}}}
-  {{/if}}
-  {{#if (eq role 'model')}}
-    King AJ: {{{content}}}
-  {{/if}}
+  {{role}}: {{{content}}}
 {{/each}}
 
 Now, respond to the user's latest message:
-User: {{{message}}}
+user: {{{message}}}
 `,
 });
 
