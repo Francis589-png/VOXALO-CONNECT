@@ -26,6 +26,9 @@ import {
   Paperclip,
   FileIcon,
   ArrowLeft,
+  Reply,
+  X,
+  User,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -35,7 +38,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
-import type { Message, User, Chat } from '@/types';
+import type { Message, User as AppUser, Chat } from '@/types';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
@@ -48,6 +51,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
+import UserProfileCard from './user-profile-card';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -91,6 +95,7 @@ function MessageBubble({
   onDeleteForMe,
   onDeleteForEveryone,
   onReact,
+  onReply,
   currentUser,
   chat,
   sender,
@@ -100,9 +105,10 @@ function MessageBubble({
   onDeleteForMe: (messageId: string) => void;
   onDeleteForEveryone: (messageId: string) => void;
   onReact: (messageId: string, emoji: string) => void;
+  onReply: (message: Message) => void;
   currentUser: FirebaseUser;
   chat: Chat;
-  sender: User | undefined;
+  sender: AppUser | undefined;
 }) {
   const date = (message.timestamp as any)?.toDate
     ? (message.timestamp as any).toDate()
@@ -110,6 +116,14 @@ function MessageBubble({
   const formattedDate = date
     ? formatRelative(date, new Date())
     : '';
+    
+  const getRepliedMessagePreview = () => {
+    if (!message.replyTo) return null;
+    const { type, text, imageURL, fileName } = message.replyTo;
+    if (type === 'image') return 'Image';
+    if (type === 'file') return fileName || 'File';
+    return text;
+  }
 
   const renderContent = () => {
     if (message.type === 'image' && message.imageURL) {
@@ -153,10 +167,12 @@ function MessageBubble({
       )}
     >
        {(!isOwnMessage && chat.isGroup) && (
-        <Avatar className="h-8 w-8">
-            <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
-            <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
-        </Avatar>
+        <UserProfileCard user={sender}>
+            <Avatar className="h-8 w-8 cursor-pointer">
+                <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
+                <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
+            </Avatar>
+        </UserProfileCard>
        )}
       <div
         className={cn(
@@ -168,6 +184,18 @@ function MessageBubble({
         )}
       >
         <div className="relative">
+            {message.replyTo && (
+                <div className={cn(
+                    "p-2 rounded-t-lg text-xs border-b mb-2",
+                     isOwnMessage ? "bg-primary-foreground/10 border-primary-foreground/20" : "bg-muted border-border"
+                )}>
+                    <p className={cn(
+                        "font-semibold",
+                        isOwnMessage ? "text-primary-foreground" : "text-primary"
+                    )}>{message.replyTo.senderId === currentUser.uid ? 'You' : message.replyTo.senderName}</p>
+                    <p className="truncate opacity-80">{getRepliedMessagePreview()}</p>
+                </div>
+            )}
              {chat.isGroup && !isOwnMessage && (
                 <p className="text-xs font-semibold mb-1 text-primary">{sender?.displayName}</p>
             )}
@@ -188,7 +216,7 @@ function MessageBubble({
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
             hasReactions ? 'pt-2' : '',
-            message.type !== 'image' && 'px-2.5 pb-2.5'
+            message.type !== 'image' && !message.replyTo && 'px-2.5 pb-2.5'
           )}
         >
           <span>
@@ -202,6 +230,9 @@ function MessageBubble({
         </div>
       </div>
       <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onReply(message)}>
+            <Reply className="h-4 w-4" />
+        </Button>
         <Popover>
             <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-7 w-7">
@@ -258,9 +289,13 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
-  const [currentUserData, setCurrentUserData] = useState<User | null>(null);
-  const [otherUser, setOtherUser] = useState<User | null>(null);
+  const [currentUserData, setCurrentUserData] = useState<AppUser | null>(null);
+  const [otherUser, setOtherUser] = useState<AppUser | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [isProfileCardOpen, setIsProfileCardOpen] = useState(false);
+  const [selectedProfileUser, setSelectedProfileUser] = useState<AppUser | null>(null);
+
   
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
@@ -286,7 +321,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
       const userDocRef = doc(db, 'users', currentUser.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
-          setCurrentUserData(docSnap.data() as User);
+          setCurrentUserData(docSnap.data() as AppUser);
           }
       });
       return () => unsubscribe();
@@ -297,7 +332,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
       const otherUserId = selectedChat.users.find(u => u !== currentUser.uid);
       if (otherUserId) {
         const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
-          setOtherUser(doc.data() as User);
+          setOtherUser(doc.data() as AppUser);
         });
         return () => unsub();
       }
@@ -361,8 +396,24 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
     
+    let fullMessageData: any = { ...messageData };
+    if (replyingTo) {
+        const repliedToSender = chatData?.userInfos.find(u => u.uid === replyingTo.senderId);
+        fullMessageData.replyTo = {
+            messageId: replyingTo.id,
+            senderId: replyingTo.senderId,
+            senderName: repliedToSender?.displayName || 'Unknown User',
+            text: replyingTo.text,
+            type: replyingTo.type,
+            imageURL: replyingTo.imageURL,
+            fileName: replyingTo.fileName,
+        };
+    }
+
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    await addDoc(messagesRef, messageData);
+    await addDoc(messagesRef, fullMessageData);
+    setReplyingTo(null);
+
     
     const chatRef = doc(db, 'chats', chatId);
     
@@ -373,11 +424,16 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         default: lastMessageText = messageData.text || '';
     }
 
+    if (replyingTo) {
+        lastMessageText = `Replied: ${lastMessageText}`;
+    }
+
     const updatePayload: any = {
         lastMessage: {
           text: lastMessageText,
           senderId: messageData.senderId,
           timestamp: serverTimestamp(),
+          type: messageData.type,
         },
     }
     
@@ -508,6 +564,11 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
 
     return 'Offline';
   }
+
+  const handleOpenProfile = (user: AppUser) => {
+    setSelectedProfileUser(user);
+    setIsProfileCardOpen(true);
+  }
   
 
   if (!selectedChat) {
@@ -528,6 +589,13 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
 
   return (
     <div className="flex h-full max-h-screen flex-col relative w-full">
+      {selectedProfileUser && (
+        <UserProfileCard
+            user={selectedProfileUser}
+            open={isProfileCardOpen}
+            onOpenChange={setIsProfileCardOpen}
+        />
+      )}
       {currentUserData?.chatWallpaper && (
         <Image
             src={currentUserData.chatWallpaper}
@@ -543,7 +611,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                 <ArrowLeft className="h-5 w-5" />
             </Button>
         )}
-        <div className='relative'>
+        <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
             <Avatar className="h-10 w-10">
                 <AvatarImage
                     src={getChatPhoto()!}
@@ -554,11 +622,26 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             {!chatData?.isGroup && otherUser?.status === 'online' && (
                 <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
             )}
-        </div>
+        </button>
         <div className='flex-1'>
           <h2 className="text-lg font-semibold">{getChatName()}</h2>
           <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
         </div>
+        {chatData?.isGroup && (
+             <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-5 w-5" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuItem>
+                        <Users className="mr-2 h-4 w-4" />
+                        <span>Group Info</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        )}
       </div>
       {canChat ? (
         <>
@@ -576,6 +659,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                     onDeleteForMe={handleDeleteForMe}
                     onDeleteForEveryone={handleDeleteForEveryone}
                     onReact={handleReact}
+                    onReply={setReplyingTo}
                     currentUser={currentUser}
                     chat={chatData!}
                     sender={sender}
@@ -585,10 +669,24 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
+            {replyingTo && (
+                <div className="flex items-center justify-between bg-muted p-2 rounded-t-md text-sm">
+                    <div className="flex-1 overflow-hidden">
+                        <p className="font-semibold text-primary">Replying to {replyingTo.senderId === currentUser.uid ? 'yourself' : chatData?.userInfos.find(u=>u.uid === replyingTo.senderId)?.displayName}</p>
+                        <p className="truncate text-muted-foreground">{replyingTo.text || replyingTo.type}</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyingTo(null)}>
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+            )}
             {uploading && <Progress value={undefined} className="mb-2 h-1" />}
             <form
                 onSubmit={handleSendMessage}
-                className="flex items-center gap-2"
+                className={cn(
+                    "flex items-center gap-2",
+                    replyingTo && "mt-2"
+                )}
             >
                 <Input
                   type="file"

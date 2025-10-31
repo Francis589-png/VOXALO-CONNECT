@@ -28,6 +28,15 @@ export interface Message {
   fileURL?: string;
   fileName?: string;
   fileSize?: number;
+  replyTo?: {
+    messageId: string;
+    senderId: string;
+    senderName: string;
+    text?: string;
+    type: 'text' | 'image' | 'file';
+    imageURL?: string;
+    fileName?: string;
+  };
 }
 
 export interface Chat {
