@@ -1,3 +1,4 @@
+
 'use client';
 import { useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
@@ -38,7 +39,11 @@ export default function CreateGroupDialog({ children, currentUser, onGroupCreate
   const [isOpen, setIsOpen] = useState(false);
   const { toast } = useToast();
 
-  const friends = friendships.map((f) => f.friend);
+  const allFriends = friendships.map((f) => f.friend);
+  const uniqueFriends = allFriends.filter((friend, index, self) =>
+    index === self.findIndex((f) => f.uid === friend.uid)
+  );
+
 
   const handleUserSelect = (user: User) => {
     setSelectedUsers((prev) =>
@@ -137,7 +142,7 @@ export default function CreateGroupDialog({ children, currentUser, onGroupCreate
           <h3 className="text-sm font-medium text-muted-foreground">Select members</h3>
           <ScrollArea className="h-64">
             <div className="flex flex-col gap-1">
-                {friends.map((friend) => (
+                {uniqueFriends.map((friend) => (
                 <div
                     key={friend.uid}
                     className="flex items-center p-2 rounded-md hover:bg-muted cursor-pointer"
