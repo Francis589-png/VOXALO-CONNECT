@@ -30,6 +30,7 @@ import {
   ArrowLeft,
   Play,
   Pause,
+  Video,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
