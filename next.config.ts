@@ -30,6 +30,12 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'www.freetogame.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL ? new URL(process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL).hostname : '',
         port: '',
         pathname: '/**',
