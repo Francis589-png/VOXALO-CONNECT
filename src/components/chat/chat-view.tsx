@@ -328,7 +328,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text'> & { timestamp: any, text?: string }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text'> & { timestamp: any, text?: string, audioURL?: string }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');

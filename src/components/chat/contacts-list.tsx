@@ -46,7 +46,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
         return otherUser?.photoURL || chat.userInfos.find(u => u.uid !== currentUser.uid)?.photoURL || '';
     }
 
-    const isOnline = otherUser?.status === 'online';
+    const isOnline = !chat.isGroup && otherUser?.status === 'online';
 
     return (
         <button
@@ -63,7 +63,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
                         {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
                     </AvatarFallback>
                 </Avatar>
-                {!chat.isGroup && isOnline && (
+                {isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
                 )}
             </div>
