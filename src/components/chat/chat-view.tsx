@@ -424,7 +424,10 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         setMessages(prev => [...prev, userMessage]);
         setIsBotTyping(true);
 
-        const history = messages.map(m => ({ [m.senderId === currentUser.uid ? 'user' : 'model']: m.text }));
+        const history = messages.map(m => ({
+          role: m.senderId === currentUser.uid ? 'user' : 'model',
+          content: m.text || '',
+        }));
 
         const botResponseText = await kingAjChat({ history, message: text });
         setIsBotTyping(false);

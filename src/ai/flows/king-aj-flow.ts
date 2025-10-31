@@ -11,7 +11,10 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const KingAjChatInputSchema = z.object({
-  history: z.array(z.any()).describe('The chat history.'),
+  history: z.array(z.object({
+    role: z.enum(['user', 'model']),
+    content: z.string(),
+  })).describe('The chat history.'),
   message: z.string().describe('The latest user message.'),
 });
 export type KingAjChatInput = z.infer<typeof KingAjChatInputSchema>;
@@ -43,11 +46,11 @@ When responding to users, maintain your persona. Be knowledgeable and slightly m
 
 Here is the conversation history:
 {{#each history}}
-  {{#if user}}
-    User: {{{user}}}
+  {{#if (eq role 'user')}}
+    User: {{{content}}}
   {{/if}}
-  {{#if model}}
-    King AJ: {{{model}}}
+  {{#if (eq role 'model')}}
+    King AJ: {{{content}}}
   {{/if}}
 {{/each}}
 
