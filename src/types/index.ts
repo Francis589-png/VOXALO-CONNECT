@@ -12,7 +12,6 @@ export interface User {
   readReceiptsEnabled?: boolean;
   bio?: string;
   theme?: 'light' | 'dark' | 'system';
-  chatWallpaper?: string;
 }
 
 export interface Message {

@@ -68,7 +68,6 @@ export default function SignupPage() {
         photoURL,
         lastSeen: serverTimestamp(),
         theme: 'system',
-        chatWallpaper: '/wallpapers/default.png',
       });
 
       router.push('/');

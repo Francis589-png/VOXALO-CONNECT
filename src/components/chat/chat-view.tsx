@@ -588,21 +588,12 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
   const initialOtherUser = chatData?.userInfos?.find(u => u.uid !== currentUser.uid);
 
   return (
-    <div className="flex h-full max-h-screen flex-col relative w-full">
+    <div className="flex h-full max-h-screen flex-col relative w-full chat-background">
       {selectedProfileUser && (
         <UserProfileCard
             user={selectedProfileUser}
             open={isProfileCardOpen}
             onOpenChange={setIsProfileCardOpen}
-        />
-      )}
-      {currentUserData?.chatWallpaper && (
-        <Image
-            src={currentUserData.chatWallpaper}
-            alt="Chat wallpaper"
-            fill
-            objectFit="cover"
-            className="absolute inset-0 z-0 opacity-20 dark:opacity-10"
         />
       )}
       <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">

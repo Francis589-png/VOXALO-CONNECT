@@ -8,10 +8,9 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { ArrowLeft, Moon, Sun, Monitor, User as UserIcon, Upload, Wallpaper } from 'lucide-react';
+import { ArrowLeft, Moon, Sun, Monitor, User as UserIcon, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
-import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,7 +34,6 @@ const formSchema = z.object({
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
   theme: z.string(),
   photo: z.instanceof(File).optional(),
-  wallpaper: z.instanceof(File).optional(),
 });
 
 export default function ProfilePage() {
@@ -45,10 +43,8 @@ export default function ProfilePage() {
   const { setTheme } = useTheme();
   const [isLoading, setIsLoading] = useState(false);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [wallpaperPreview, setWallpaperPreview] = useState<string | null>(null);
   
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const wallpaperInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,7 +69,6 @@ export default function ProfilePage() {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('bio', userData.bio || '');
             form.setValue('theme', userData.theme || 'system');
-            setWallpaperPreview(userData.chatWallpaper || null);
           }
         }
       });
@@ -87,18 +82,6 @@ export default function ProfilePage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setPhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
-  const handleWallpaperChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      form.setValue('wallpaper', file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setWallpaperPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -117,11 +100,6 @@ export default function ProfilePage() {
         photoURL = await uploadFile(values.photo);
       }
 
-      let chatWallpaperURL;
-      if (values.wallpaper) {
-        chatWallpaperURL = await uploadFile(values.wallpaper);
-      }
-
       await updateProfile(user, {
         displayName: values.displayName,
         photoURL,
@@ -134,7 +112,6 @@ export default function ProfilePage() {
         readReceiptsEnabled: values.readReceiptsEnabled,
         bio: values.bio,
         theme: values.theme,
-        ...(chatWallpaperURL && { chatWallpaper: chatWallpaperURL }),
       });
 
       setTheme(values.theme);
@@ -290,37 +267,6 @@ export default function ProfilePage() {
                             </FormItem>
                         )}
                     />
-
-                    <FormItem>
-                        <FormLabel>Chat Wallpaper</FormLabel>
-                        <div className="relative aspect-video w-full rounded-md border border-dashed flex items-center justify-center overflow-hidden">
-                            {wallpaperPreview ? (
-                                <Image src={wallpaperPreview} alt="Wallpaper preview" layout="fill" objectFit="cover" />
-                            ) : (
-                                <div className='text-center text-muted-foreground'>
-                                    <Wallpaper className='h-8 w-8 mx-auto mb-2' />
-                                    <p className='text-sm'>No wallpaper set</p>
-                                </div>
-                            )}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-                                onClick={() => wallpaperInputRef.current?.click()}
-                            >
-                                <Upload className="mr-2 h-4 w-4" />
-                                Upload Wallpaper
-                            </Button>
-                            <Input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              ref={wallpaperInputRef}
-                              onChange={handleWallpaperChange}
-                            />
-                        </div>
-                        <FormDescription>This background will be applied to all of your chats.</FormDescription>
-                    </FormItem>
                     
                     <Separator />
                     
@@ -355,5 +301,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
-    
