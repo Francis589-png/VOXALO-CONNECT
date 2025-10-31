@@ -29,6 +29,7 @@ import {
   Paperclip,
   FileIcon,
   Bot,
+  Video,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -54,6 +55,7 @@ import { Progress } from '../ui/progress';
 import { kingAjChat } from '@/ai/flows/king-aj-flow';
 import { Icons } from '../icons';
 import { Skeleton } from '../ui/skeleton';
+import JitsiMeet from './jitsi-meet';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -278,6 +280,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [inCall, setInCall] = useState(false);
   
   const isKingAjChat = selectedChat?.id === 'king-aj-bot';
 
@@ -627,6 +630,16 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     return 'Offline';
   }
   
+  if (inCall && chatId) {
+    return (
+        <JitsiMeet
+            roomName={chatId}
+            displayName={currentUser.displayName || 'User'}
+            onClose={() => setInCall(false)}
+        />
+    );
+  }
+
   if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-muted">
@@ -677,6 +690,11 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
           <h2 className="text-lg font-semibold">{getChatName()}</h2>
           <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
         </div>
+        {!isKingAjChat && (
+            <Button size="icon" variant="ghost" onClick={() => setInCall(true)}>
+                <Video className="h-5 w-5" />
+            </Button>
+        )}
       </div>
       {canChat ? (
         <>
