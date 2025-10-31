@@ -13,10 +13,13 @@ import {
   serverTimestamp,
   deleteDoc,
   getDoc,
+  setDoc,
+  getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
-import type { FriendRequest, Friendship, User } from '@/types';
+import type { Chat, FriendRequest, Friendship, User } from '@/types';
+import { getChatId } from '@/lib/utils';
 
 type FriendsContextType = {
   incomingRequests: FriendRequest[];
@@ -27,6 +30,7 @@ type FriendsContextType = {
   declineFriendRequest: (requestId: string) => Promise<void>;
   sendFriendRequest: (receiverId: string) => Promise<void>;
   getFriendshipStatus: (userId: string) => 'friends' | 'pending-incoming' | 'pending-outgoing' | 'not-friends';
+  createChat: (otherUser: User) => Promise<Chat>;
 };
 
 const FriendsContext = createContext<FriendsContextType | undefined>(undefined);
@@ -50,7 +54,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     const usersRef = collection(db, 'users');
     const usersUnsubscribe = onSnapshot(usersRef, (snapshot) => {
         const usersData = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
-        setUsers(usersData);
+        setUsers(usersData.filter(u => u.uid !== user.uid));
     });
 
     const requestsRef = collection(db, 'friendRequests');
@@ -87,6 +91,9 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
         }
 
         const userDoc = await getDoc(doc(db, 'users', friendId));
+        if (!userDoc.exists()) {
+            return null;
+        }
         const friend = userDoc.data() as User;
         
         return {
@@ -113,18 +120,24 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
         const request = requestSnap.data() as FriendRequest;
         await updateDoc(requestRef, { status: 'accepted' });
         
-        const senderDoc = await getDoc(doc(db, 'users', request.senderId));
-        const receiverDoc = await getDoc(doc(db, 'users', request.receiverId));
-
         const friendshipRef = collection(db, 'friendships');
         await addDoc(friendshipRef, {
             users: [request.senderId, request.receiverId],
             createdAt: serverTimestamp(),
-            userInfos: {
-                [request.senderId]: senderDoc.data(),
-                [request.receiverId]: receiverDoc.data()
-            }
         });
+
+        const chatId = getChatId(request.senderId, request.receiverId);
+        const chatRef = doc(db, 'chats', chatId);
+        const chatSnap = await getDoc(chatRef);
+        if (chatSnap.exists()) {
+            await updateDoc(chatRef, {
+                lastMessage: {
+                    text: 'Friend request accepted!',
+                    senderId: 'system',
+                    timestamp: serverTimestamp(),
+                }
+            })
+        }
     }
   };
 
@@ -135,6 +148,19 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
   
   const sendFriendRequest = async (receiverId: string) => {
     if (!user) return;
+
+    const requestsRef = collection(db, "friendRequests");
+    const q = query(
+      requestsRef,
+      where("senderId", "in", [user.uid, receiverId]),
+      where("receiverId", "in", [user.uid, receiverId])
+    );
+
+    const existingRequests = await getDocs(q);
+    if (!existingRequests.empty) {
+        return; // Request already exists
+    }
+
     const request = {
       senderId: user.uid,
       receiverId,
@@ -157,9 +183,31 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
     return 'not-friends';
   }
 
+  const createChat = async (otherUser: User): Promise<Chat> => {
+    if (!user) throw new Error("User not authenticated");
+
+    const chatId = getChatId(user.uid, otherUser.uid);
+    const chatRef = doc(db, 'chats', chatId);
+    const chatSnap = await getDoc(chatRef);
+
+    if (!chatSnap.exists()) {
+      const currentUserDoc = await getDoc(doc(db, 'users', user.uid));
+      const newChat = {
+        id: chatId,
+        users: [user.uid, otherUser.uid],
+        userInfos: [currentUserDoc.data() as User, otherUser],
+        createdAt: serverTimestamp(),
+        isGroup: false,
+      };
+      await setDoc(chatRef, newChat);
+      return newChat as Chat;
+    }
+    return {id: chatSnap.id, ...chatSnap.data()} as Chat;
+  }
+
 
   return (
-    <FriendsContext.Provider value={{ incomingRequests, outgoingRequests, friendships, users, acceptFriendRequest, declineFriendRequest, sendFriendRequest, getFriendshipStatus }}>
+    <FriendsContext.Provider value={{ incomingRequests, outgoingRequests, friendships, users, acceptFriendRequest, declineFriendRequest, sendFriendRequest, getFriendshipStatus, createChat }}>
       {children}
     </FriendsContext.Provider>
   );

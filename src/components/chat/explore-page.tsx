@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import { Check, UserPlus, X } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import type { User } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ExplorePageProps {
   search: string;
@@ -19,7 +21,9 @@ export default function ExplorePage({ search }: ExplorePageProps) {
     declineFriendRequest,
     sendFriendRequest,
     getFriendshipStatus,
+    createChat,
   } = useFriends();
+  const { user: currentUser } = useAuth();
 
   const searchLower = search.toLowerCase();
 
@@ -43,6 +47,12 @@ export default function ExplorePage({ search }: ExplorePageProps) {
         user.email?.toLowerCase().includes(searchLower))
     );
   });
+  
+  const handleStartChat = async (otherUser: User) => {
+    if (!currentUser) return;
+    await createChat(otherUser);
+    sendFriendRequest(otherUser.uid)
+  }
 
   return (
     <ScrollArea className="h-full">
@@ -107,7 +117,7 @@ export default function ExplorePage({ search }: ExplorePageProps) {
                 <Button
                   size="icon"
                   variant="ghost"
-                  onClick={() => sendFriendRequest(user.uid)}
+                  onClick={() => handleStartChat(user)}
                 >
                   <UserPlus className="h-5 w-5" />
                 </Button>

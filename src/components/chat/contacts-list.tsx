@@ -15,7 +15,6 @@ import { Users, File, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ContactsListProps {
-  users: User[];
   selectedChat: Chat | null;
   onSelectChat: (chat: Chat) => void;
   search: string;
@@ -107,6 +106,7 @@ export default function ContactsList({
 }: ContactsListProps) {
   const { user: currentUser } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
+  const { createChat } = useFriends();
 
   useEffect(() => {
     if (!currentUser) return;
