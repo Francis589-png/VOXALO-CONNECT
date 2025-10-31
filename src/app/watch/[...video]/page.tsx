@@ -32,6 +32,14 @@ export default function VideoPlayerPage() {
     );
   }
 
+  const isArchiveVideo = videoUrl.includes('archive.org');
+  
+  // For Internet Archive, we need to construct an embed URL
+  const embedUrl = isArchiveVideo 
+    ? videoUrl.replace('/download/', '/embed/') 
+    : videoUrl;
+
+
   return (
     <div className="h-screen w-screen flex flex-col bg-black">
       <header className="flex-shrink-0 bg-black/80 backdrop-blur-sm flex items-center p-2 border-b border-white/20 z-10">
@@ -40,12 +48,21 @@ export default function VideoPlayerPage() {
         </Button>
       </header>
       <main className="flex-1 flex items-center justify-center overflow-hidden">
-        <video
-          src={videoUrl}
-          controls
-          autoPlay
-          className="max-h-full max-w-full"
-        />
+        {isArchiveVideo ? (
+          <iframe
+            src={embedUrl}
+            className="w-full h-full border-0"
+            allow="autoplay; fullscreen"
+            allowFullScreen
+          />
+        ) : (
+          <video
+            src={embedUrl}
+            controls
+            autoPlay
+            className="max-h-full max-w-full"
+          />
+        )}
       </main>
     </div>
   );
