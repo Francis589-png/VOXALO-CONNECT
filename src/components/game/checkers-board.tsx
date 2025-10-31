@@ -26,11 +26,11 @@ const getValidMoves = (board: Board, row: number, col: number): Move[] => {
     directions = [{ r: -1, c: -1 }, { r: -1, c: 1 }, { r: 1, c: -1 }, { r: 1, c: 1 }];
   } else if (player === 'red') {
     directions = [{ r: -1, c: -1 }, { r: -1, c: 1 }];
-  } else {
+  } else { // 'black'
     directions = [{ r: 1, c: -1 }, { r: 1, c: 1 }];
   }
 
-  // Jumps first - if a jump is available, it must be taken.
+  // Check for jumps first
   const jumpMoves: Move[] = [];
   for (const dir of directions) {
     const jumpRow = row + dir.r * 2;
@@ -48,10 +48,12 @@ const getValidMoves = (board: Board, row: number, col: number): Move[] => {
     }
   }
 
-  if (jumpMoves.length > 0) return jumpMoves;
+  // If a jump is available, it's the only valid move type
+  if (jumpMoves.length > 0) {
+    return jumpMoves;
+  }
 
-
-  // Regular moves
+  // If no jumps, check for regular moves
   for (const dir of directions) {
     const newRow = row + dir.r;
     const newCol = col + dir.c;
@@ -119,21 +121,21 @@ export default function CheckersBoard({ game, currentUser }: CheckersBoardProps)
     newBoard[move.to.row][move.to.col] = pieceToMove;
     newBoard[move.from.row][move.from.col] = null;
 
-    let jumpedPiece = false;
     if (move.isJump && move.jumpedPiece) {
       newBoard[move.jumpedPiece.row][move.jumpedPiece.col] = null;
-      jumpedPiece = true;
-    }
-
-    // Check for multi-jump
-    if(jumpedPiece) {
-        const nextJumps = getValidMoves(newBoard, move.to.row, move.to.col).filter(m => m.isJump);
-        if (nextJumps.length > 0) {
-             await updateGameState(game.id, newBoard, game.currentPlayer);
-             setSelectedPiece({row: move.to.row, col: move.to.col});
-             setValidMoves(nextJumps);
-             return;
-        }
+      
+      // Check for multi-jump after the piece has moved
+      const nextJumps = getValidMoves(newBoard, move.to.row, move.to.col).filter(m => m.isJump);
+      if (nextJumps.length > 0) {
+        // There's another jump, so update board state locally, but don't switch players
+        // The game state will be updated in Firestore, but the current player remains
+        await updateGameState(game.id, newBoard, game.currentPlayer);
+        // The `onSnapshot` listener in GamePage will receive the new board and re-render this component.
+        // We need to set the local state to continue the turn.
+        setSelectedPiece({row: move.to.row, col: move.to.col});
+        setValidMoves(nextJumps);
+        return; // End the function here to allow the user to make the next jump.
+      }
     }
 
 
