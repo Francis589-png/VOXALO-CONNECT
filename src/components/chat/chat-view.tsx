@@ -26,7 +26,7 @@ import {
   StopCircle,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { formatRelative } from 'date-fns';
+import { format, formatRelative, isToday } from 'date-fns';
 import Image from 'next/image';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -227,6 +227,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
+  const [otherUser, setOtherUser] = useState<User | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -260,6 +261,20 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       });
       return () => unsubscribe();
   }, [currentUser?.uid]);
+
+  useEffect(() => {
+    if (selectedChat && !selectedChat.isGroup) {
+      const otherUserId = selectedChat.users.find(u => u !== currentUser.uid);
+      if (otherUserId) {
+        const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
+          setOtherUser(doc.data() as User);
+        });
+        return () => unsub();
+      }
+    } else {
+        setOtherUser(null);
+    }
+  }, [selectedChat, currentUser.uid]);
 
 
   useEffect(() => {
@@ -313,28 +328,21 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp'> & { timestamp: any }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text'> & { timestamp: any, text?: string }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    await addDoc(messagesRef, messageData);
+    const docRef = await addDoc(messagesRef, messageData);
     
     const chatRef = doc(db, 'chats', chatId);
+    const lastMessageText = messageData.type === 'audio' ? 'Audio message' : messageData.text;
+
     const updatePayload: any = {
         lastMessage: {
-          text: messageData.type === 'audio' ? 'Audio message' : messageData.text,
+          text: lastMessageText,
           senderId: messageData.senderId,
           timestamp: serverTimestamp(),
         },
-    }
-
-    if (chatData?.isGroup) {
-        updatePayload['userInfos'] = chatData.userInfos;
-    } else {
-         const otherUserId = chatData?.users.find(u => u !== currentUser.uid)
-         const otherUser = chatData?.userInfos.find(u => u.uid === otherUserId);
-         const me = chatData?.userInfos.find(u => u.uid === currentUser.uid);
-         updatePayload['userInfos'] = [me, otherUser];
     }
     
     await updateDoc(chatRef, updatePayload);
@@ -345,7 +353,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     if (!newMessage.trim() || !chatData) return;
 
     const messageData = {
-        type: 'text',
+        type: 'text' as const,
         text: newMessage,
         senderId: currentUser.uid,
         timestamp: serverTimestamp(),
@@ -460,14 +468,12 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const getChatName = () => {
     if (!chatData) return '';
     if (chatData.isGroup) return chatData.name;
-    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
     return otherUser?.displayName || '';
   }
 
   const getChatPhoto = () => {
     if (!chatData) return '';
     if (chatData.isGroup) return chatData.photoURL;
-    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
     return otherUser?.photoURL || '';
   }
   
@@ -478,8 +484,19 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       return `${chatData.users.length} members`;
     }
     
-    const otherUser = chatData.userInfos.find(u => u.uid !== currentUser.uid);
-    return otherUser?.bio;
+    if (otherUser?.status === 'online') {
+        return 'Online';
+    }
+
+    if (otherUser?.lastSeen) {
+        const lastSeenDate = otherUser.lastSeen.toDate();
+        if (isToday(lastSeenDate)) {
+            return `last seen today at ${format(lastSeenDate, 'p')}`;
+        }
+        return `last seen ${formatRelative(lastSeenDate, new Date())}`;
+    }
+
+    return 'Offline';
   }
   
   if (!selectedChat) {
@@ -496,7 +513,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     );
   }
   
-  const otherUser = chatData?.userInfos.find(u => u.uid !== currentUser.uid);
+  const initialOtherUser = chatData?.userInfos.find(u => u.uid !== currentUser.uid);
 
   return (
     <div className="flex h-full max-h-screen flex-col relative">
@@ -510,13 +527,18 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         />
       )}
       <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
-        <Avatar className="h-10 w-10">
-          <AvatarImage
-            src={getChatPhoto()!}
-            alt={getChatName()!}
-          />
-          <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
-        </Avatar>
+        <div className='relative'>
+            <Avatar className="h-10 w-10">
+            <AvatarImage
+                src={getChatPhoto()!}
+                alt={getChatName()!}
+            />
+            <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
+            </Avatar>
+            {!chatData?.isGroup && otherUser?.status === 'online' && (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+            )}
+        </div>
         <div className='flex-1'>
           <h2 className="text-lg font-semibold">{getChatName()}</h2>
           <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
@@ -593,7 +615,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>
             <h3 className="text-xl font-semibold">{getChatName()}</h3>
-            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{otherUser?.bio}</p>
+            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{initialOtherUser?.bio}</p>
             <p className="text-muted-foreground text-sm mt-4">
               You are not friends with this user yet.
               Accept their friend request or send one to start chatting.

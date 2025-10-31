@@ -6,8 +6,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useEffect, useState } from 'react';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, rtdb } from '@/lib/firebase';
 import Loading from '@/app/loading';
+import { onValue, ref, onDisconnect, set, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
 
 
 type AuthContextType = {
@@ -29,18 +30,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
-        
         const userDocRef = doc(db, 'users', user.uid);
-        updateDoc(userDocRef, {
+        const userStatusRef = ref(rtdb, `status/${user.uid}`);
+        
+        const isOfflineForFirestore = {
+            status: 'offline',
             lastSeen: serverTimestamp(),
+        };
+        const isOnlineForFirestore = {
+            status: 'online',
+            lastSeen: serverTimestamp(),
+        };
+
+        const isOfflineForRTDB = {
+            status: 'offline',
+            lastSeen: rtdbServerTimestamp(),
+        };
+        const isOnlineForRTDB = {
+            status: 'online',
+            lastSeen: rtdbServerTimestamp(),
+        };
+
+        onValue(ref(rtdb, '.info/connected'), (snapshot) => {
+            if (snapshot.val() === true) {
+                onDisconnect(userStatusRef).set(isOfflineForRTDB).then(() => {
+                    set(userStatusRef, isOnlineForRTDB);
+                    updateDoc(userDocRef, isOnlineForFirestore);
+                });
+            }
         });
         
-        // Set up presence management on visibility change
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
-                updateDoc(userDocRef, {
-                    lastSeen: serverTimestamp(),
-                });
+                set(userStatusRef, isOnlineForRTDB);
+                updateDoc(userDocRef, isOnlineForFirestore);
+            } else {
+                set(userStatusRef, isOfflineForRTDB);
+                updateDoc(userDocRef, isOfflineForFirestore);
             }
         });
 

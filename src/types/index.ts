@@ -7,6 +7,7 @@ export interface User {
   email: string | null;
   photoURL: string | null;
   lastSeen?: Timestamp;
+  status?: 'online' | 'offline';
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
   bio?: string;
