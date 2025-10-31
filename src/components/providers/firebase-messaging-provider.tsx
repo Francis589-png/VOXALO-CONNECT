@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -34,38 +33,44 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && user) {
-        onMessageListener()
-            .then((payload) => {
-                 if (payload && (payload as MessagePayload).notification) {
-                    const { title, body } = (payload as MessagePayload).notification!;
-                    const chatId = (payload as MessagePayload).data?.chatId;
-                    const currentChatId = searchParams.get('chatId');
+        const handleMessage = (payload: MessagePayload) => {
+            if (payload && payload.notification) {
+                const { title, body } = payload.notification;
+                const chatId = payload.data?.chatId;
+                const currentChatId = searchParams.get('chatId');
 
-                    // Don't show notification if user is already in the chat
-                    if (pathname === '/' && chatId === currentChatId) {
-                        return;
-                    }
-
-                    toast({
-                        title: title,
-                        description: body,
-                        action: chatId ? (
-                        <button
-                            onClick={() => router.push(`/?chatId=${chatId}`)}
-                            className="text-sm font-medium text-primary hover:underline"
-                        >
-                            Open
-                        </button>
-                        ) : undefined,
-                    });
-
-                    if (notificationSoundEnabled) {
-                        const audio = new Audio('/notification.mp3');
-                        audio.play().catch(e => console.error("Error playing notification sound:", e));
-                    }
+                // Don't show notification if user is already in the chat
+                if (pathname === '/' && chatId === currentChatId) {
+                    return;
                 }
-            })
-            .catch(err => console.error('failed: ', err));
+
+                toast({
+                    title: title,
+                    description: body,
+                    action: chatId ? (
+                    <button
+                        onClick={() => router.push(`/?chatId=${chatId}`)}
+                        className="text-sm font-medium text-primary hover:underline"
+                    >
+                        Open
+                    </button>
+                    ) : undefined,
+                });
+
+                if (notificationSoundEnabled) {
+                    const audio = new Audio('/notification.mp3');
+                    audio.play().catch(e => console.error("Error playing notification sound:", e));
+                }
+            }
+        };
+        
+        // Correctly set up the listener
+        const unsubscribe = onMessage(onMessageListener(), handleMessage);
+
+        // Cleanup the listener when the component unmounts
+        return () => {
+            unsubscribe();
+        };
     }
   }, [toast, router, pathname, searchParams, user, notificationSoundEnabled]);
 
