@@ -84,25 +84,23 @@ function ReadReceipt({
 }) {
   if (!isOwnMessage) return null;
 
-  // Filter out the current user from the readBy list and total user list
   const otherUsersInChat = chat.users.filter(uid => uid !== currentUser.uid);
   const otherUsersWhoRead = readBy?.filter(uid => uid !== currentUser.uid) || [];
 
-  const sent = (readBy?.length ?? 0) <= 1 && otherUsersWhoRead.length === 0;
-  const partiallyRead = otherUsersWhoRead.length > 0 && otherUsersWhoRead.length < otherUsersInChat.length;
-  const allRead = otherUsersInChat.length > 0 && otherUsersWhoRead.length === otherUsersInChat.length;
-
-  const ReadIcon = sent ? Check : CheckCheck;
-  const iconColor = allRead 
-    ? 'text-green-500' 
-    : partiallyRead 
-    ? 'text-blue-500' 
-    : sent && (readBy || []).length > 0
-    ? 'text-red-500'
-    : 'text-muted-foreground';
-
-
   if (chat.isGroup) {
+    const sent = (readBy?.length ?? 0) <= 1 && otherUsersWhoRead.length === 0;
+    const partiallyRead = otherUsersWhoRead.length > 0 && otherUsersWhoRead.length < otherUsersInChat.length;
+    const allRead = otherUsersInChat.length > 0 && otherUsersWhoRead.length === otherUsersInChat.length;
+
+    const ReadIcon = sent ? Check : CheckCheck;
+    const iconColor = allRead 
+      ? 'text-green-500' 
+      : partiallyRead 
+      ? 'text-blue-500' 
+      : sent && (readBy || []).length > 0
+      ? 'text-red-500'
+      : 'text-muted-foreground';
+    
     const readers = userInfos.filter(u => otherUsersWhoRead.includes(u.uid));
     return (
       <Popover>
@@ -134,6 +132,11 @@ function ReadReceipt({
       </Popover>
     );
   }
+
+  // 1-on-1 chat logic
+  const isReadByOther = otherUsersInChat.length > 0 && otherUsersWhoRead.length > 0;
+  const ReadIcon = isReadByOther ? CheckCheck : Check;
+  const iconColor = isReadByOther ? 'text-green-500' : 'text-red-500';
 
   return <ReadIcon className={`h-4 w-4 ${iconColor}`} />;
 }
@@ -886,3 +889,5 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
+    
