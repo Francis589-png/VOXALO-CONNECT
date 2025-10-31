@@ -88,10 +88,19 @@ function ReadReceipt({
   const otherUsersInChat = chat.users.filter(uid => uid !== currentUser.uid);
   const otherUsersWhoRead = readBy?.filter(uid => uid !== currentUser.uid) || [];
 
-  const allRead = otherUsersWhoRead.length > 0 && otherUsersInChat.every(userId => otherUsersWhoRead.includes(userId));
+  const sent = (readBy?.length ?? 0) <= 1 && otherUsersWhoRead.length === 0;
+  const partiallyRead = otherUsersWhoRead.length > 0 && otherUsersWhoRead.length < otherUsersInChat.length;
+  const allRead = otherUsersInChat.length > 0 && otherUsersWhoRead.length === otherUsersInChat.length;
 
-  const ReadIcon = allRead ? CheckCheck : (otherUsersWhoRead.length > 0 || (readBy && readBy.length > 1) ? CheckCheck : Check);
-  const iconColor = allRead ? 'text-blue-500' : 'text-muted-foreground';
+  const ReadIcon = sent ? Check : CheckCheck;
+  const iconColor = allRead 
+    ? 'text-green-500' 
+    : partiallyRead 
+    ? 'text-blue-500' 
+    : sent && (readBy || []).length > 0
+    ? 'text-red-500'
+    : 'text-muted-foreground';
+
 
   if (chat.isGroup) {
     const readers = userInfos.filter(u => otherUsersWhoRead.includes(u.uid));
