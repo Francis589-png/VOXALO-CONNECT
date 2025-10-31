@@ -58,6 +58,7 @@ import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
 import UserProfileCard from './user-profile-card';
 import { useGroupInfo } from '../providers/group-info-provider';
+import { Textarea } from '../ui/textarea';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -392,6 +393,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<AppUser | null>(null);
@@ -506,6 +508,13 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
       }, 100);
     }
   }, [messages, selectedChat, searchQuery]);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [newMessage]);
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
@@ -560,6 +569,10 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
     const text = newMessage;
     setNewMessage('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+
 
     const messageData = {
         type: 'text' as const,
@@ -836,7 +849,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             <form
                 onSubmit={handleSendMessage}
                 className={cn(
-                    "flex items-center gap-2",
+                    "flex items-start gap-2",
                     replyingTo && "mt-2"
                 )}
             >
@@ -847,24 +860,33 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                   className="hidden"
                   disabled={uploading}
                 />
-                <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
+                <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading} className='shrink-0'>
                     <Paperclip className="h-5 w-5" />
                 </Button>
 
-                <Input
+                <Textarea
+                    ref={textareaRef}
+                    rows={1}
                     value={newMessage}
                     onChange={(e) => {
                         setNewMessage(e.target.value);
                     }}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e);
+                        }
+                    }}
                     placeholder={'Type a message...'}
                     autoComplete="off"
                     disabled={uploading}
-                    className="bg-background/80"
+                    className="bg-background/80 max-h-32 resize-none"
                 />
                 <Button
                     type="submit"
                     size="icon"
                     disabled={uploading || !newMessage.trim()}
+                    className='shrink-0'
                 >
                     <Send className="h-5 w-5" />
                 </Button>
