@@ -425,9 +425,17 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         timestamp: new Date(),
         type: 'text',
       };
-
       setMessages(prev => [...prev, userMessage]);
 
+      const botMessagePlaceholder: Message = {
+        id: `bot-placeholder-${Date.now()}`,
+        senderId: 'king-aj-bot',
+        timestamp: new Date(),
+        type: 'text',
+        text: '...',
+      };
+      setMessages(prev => [...prev, botMessagePlaceholder]);
+      
       const history = messages.map(m => ({
         role: m.senderId === currentUser.uid ? 'user' : 'model',
         content: m.text || '',
@@ -442,8 +450,8 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         timestamp: new Date(),
         type: 'text',
       };
-
-      setMessages(prev => [...prev, botMessage]);
+      
+      setMessages(prev => prev.map(m => m.id === botMessagePlaceholder.id ? botMessage : m));
     } else {
         const messageData = {
             type: 'text' as const,
@@ -630,15 +638,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     return 'Offline';
   }
   
-  if (inCall && chatId) {
-    return (
-        <JitsiMeet
-            roomName={chatId}
-            displayName={currentUser.displayName || 'User'}
-            onClose={() => setInCall(false)}
-        />
-    );
-  }
 
   if (!selectedChat) {
     return (
@@ -703,6 +702,19 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === currentUser.uid;
                 const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
+
+                if(message.text === '...') {
+                    return (
+                        <div key={message.id} className='flex items-start gap-2'>
+                             <Avatar className="h-8 w-8">
+                                <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
+                            </Avatar>
+                            <div className='bg-card p-3.5 rounded-lg rounded-tl-none'>
+                                <Skeleton className="h-4 w-12" />
+                            </div>
+                        </div>
+                    )
+                }
 
                 return (
                   <MessageBubble
@@ -795,6 +807,13 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             </p>
           </div>
         </div>
+      )}
+      {inCall && chatId && (
+        <JitsiMeet
+            roomName={chatId}
+            displayName={currentUser.displayName || 'User'}
+            onClose={() => setInCall(false)}
+        />
       )}
     </div>
   );
