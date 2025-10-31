@@ -1,11 +1,7 @@
-import { MessageCircle, Bot, type LucideProps } from 'lucide-react';
-import type { SVGProps } from 'react';
+import { MessageCircle, type LucideProps } from 'lucide-react';
 
 export const Icons = {
   logo: (props: LucideProps) => (
     <MessageCircle {...props} />
   ),
-  bot: (props: LucideProps) => (
-    <Bot {...props} />
-  )
 };

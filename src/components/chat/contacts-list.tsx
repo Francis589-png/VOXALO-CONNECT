@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useFriends } from '../providers/friends-provider';
@@ -7,14 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import { useUnreadCount } from '@/hooks/use-unread-count';
-import { getChatId } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, File, Image as ImageIcon, Mic, Bot } from 'lucide-react';
+import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Icons } from '../icons';
 
 interface ContactsListProps {
   users: User[];
@@ -28,7 +25,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     const [otherUser, setOtherUser] = useState<User | undefined>();
 
     useEffect(() => {
-        if (chat.isGroup || chat.id === 'king-aj-bot') return;
+        if (chat.isGroup) return;
         const otherUserId = chat.users.find(u => u !== currentUser.uid);
         if (otherUserId) {
             const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
@@ -39,13 +36,11 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     }, [chat, currentUser]);
     
     const getChatName = () => {
-        if (chat.id === 'king-aj-bot') return 'King AJ';
         if (chat.isGroup) return chat.name;
         return otherUser?.displayName || chat.userInfos.find(u => u.uid !== currentUser.uid)?.displayName || '';
     }
 
     const getChatPhoto = () => {
-        if (chat.id === 'king-aj-bot') return null;
         if (chat.isGroup) return chat.photoURL;
         return otherUser?.photoURL || chat.userInfos.find(u => u.uid !== currentUser.uid)?.photoURL || '';
     }
@@ -53,7 +48,6 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     const isOnline = !chat.isGroup && otherUser?.status === 'online';
     
     const getLastMessagePreview = () => {
-        if(chat.id === 'king-aj-bot') return 'AI Companion';
         const lastMessage = chat.lastMessage;
         if (!lastMessage) return chat.isGroup ? 'Group Chat' : 'No messages yet';
 
@@ -80,16 +74,10 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
             >
             <div className="relative">
                 <Avatar className="h-10 w-10">
-                    {chat.id === 'king-aj-bot' ? (
-                       <AvatarFallback className='bg-primary text-primary-foreground'><Icons.bot className="h-6 w-6" /></AvatarFallback>
-                    ) : (
-                        <>
-                         <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
-                         <AvatarFallback>
-                             {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
-                         </AvatarFallback>
-                        </>
-                    )}
+                    <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
+                    <AvatarFallback>
+                        {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
+                    </AvatarFallback>
                 </Avatar>
                 {isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
@@ -121,13 +109,6 @@ export default function ContactsList({
   const { user: currentUser } = useAuth();
   const [chats, setChats] = useState<Chat[]>([]);
 
-  const kingAjBotChat: Chat = {
-    id: 'king-aj-bot',
-    users: [currentUser?.uid || '', 'king-aj-bot'],
-    userInfos: [],
-    isGroup: false,
-  };
-
   useEffect(() => {
     if (!currentUser) return;
     
@@ -148,21 +129,17 @@ export default function ContactsList({
   }, [currentUser]);
 
   const filteredChats = useMemo(() => {
-    const allChats = [kingAjBotChat, ...chats];
-    if (!search) return allChats;
+    if (!search) return chats;
 
     const searchLower = search.toLowerCase();
-    return allChats.filter(chat => {
-        if (chat.id === 'king-aj-bot') {
-            return 'king aj'.includes(searchLower);
-        }
+    return chats.filter(chat => {
         if (chat.isGroup) {
             return chat.name?.toLowerCase().includes(searchLower);
         }
         const otherUser = chat.userInfos.find(u => u.uid !== currentUser?.uid);
         return otherUser?.displayName?.toLowerCase().includes(searchLower);
     });
-  }, [chats, search, currentUser, kingAjBotChat]);
+  }, [chats, search, currentUser]);
 
 
   if (filteredChats.length === 0) {
