@@ -29,7 +29,7 @@ import { requestNotificationPermission } from '@/lib/firebase-messaging';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import GamesBrowserPage from './games-browser-page';
-import PexelsBrowserPage from './pexels-browser-page';
+import VideoBrowserPage from './video-browser-page';
 
 
 interface ChatLayoutProps {
@@ -169,7 +169,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
             <GamesBrowserPage />
           </TabsContent>
           <TabsContent value="watch" className="flex-1 overflow-y-auto mt-0 p-0">
-            <PexelsBrowserPage />
+            <VideoBrowserPage />
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />

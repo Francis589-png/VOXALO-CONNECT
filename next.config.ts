@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -49,6 +50,12 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL ? new URL(process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL).hostname : '',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'archive.org',
         port: '',
         pathname: '/**',
       }

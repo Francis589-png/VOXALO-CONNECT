@@ -96,7 +96,7 @@ export interface GameMonetizeGame {
   height: string;
 }
 
-// --- Pexels Types ---
+// --- Video Types ---
 export interface PexelsVideo {
   id: number;
   width: number;
@@ -116,4 +116,11 @@ export interface PexelsVideo {
     height: number;
     link: string;
   }[];
+}
+
+export interface ArchiveVideo {
+  identifier: string;
+  title: string;
+  description: string;
+  year: string;
 }
