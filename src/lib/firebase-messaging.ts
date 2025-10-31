@@ -1,10 +1,11 @@
+
 'use client';
 
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { app, db } from './firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { app, db } from './firebase';
 
-export async function requestNotificationPermission(userId: string) {
+export const requestNotificationPermission = async (userId: string) => {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     console.log('This browser does not support desktop notification');
     return;
@@ -12,29 +13,15 @@ export async function requestNotificationPermission(userId: string) {
   
   const messaging = getMessaging(app);
 
-  // Handle foreground messages
-  onMessage(messaging, (payload) => {
-    console.log('Message received. ', payload);
-    const notificationTitle = payload.notification?.title || 'New Message';
-    const notificationOptions = {
-        body: payload.notification?.body || '',
-        icon: payload.notification?.icon || '/favicon.ico'
-    };
-    new Notification(notificationTitle, notificationOptions);
-  });
-  
   const permission = await Notification.requestPermission();
-
   if (permission === 'granted') {
     console.log('Notification permission granted.');
     try {
       const currentToken = await getToken(messaging, {
-        vapidKey: process.env.NEXT_PUBLIC_FCM_VAPID_KEY,
+        vapidKey: 'BPE1_m9i8tu_D6vj8vso-p3c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23c8E23',
       });
       if (currentToken) {
-        console.log('FCM Token:', currentToken);
-        const userDocRef = doc(db, 'users', userId);
-        await updateDoc(userDocRef, {
+        await updateDoc(doc(db, 'users', userId), {
           fcmToken: currentToken,
         });
       } else {
@@ -46,4 +33,13 @@ export async function requestNotificationPermission(userId: string) {
   } else {
     console.log('Unable to get permission to notify.');
   }
+};
+
+export const onMessageListener = () => {
+    const messaging = getMessaging(app);
+    return new Promise((resolve) => {
+        onMessage(messaging, (payload) => {
+            resolve(payload);
+        });
+  });
 }

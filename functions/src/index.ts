@@ -37,26 +37,33 @@ exports.sendChatNotification = functions.firestore
         messageText = 'Sent a file';
     }
 
-
-    const payload: admin.messaging.MessagingPayload = {
-      notification: {
-        title: `New message from ${senderData.displayName}`,
-        body: messageText,
-        icon: senderData.photoURL || undefined,
-        click_action: `https://voxalo-x.web.app/`
-      },
-    };
-
     const tokens: string[] = [];
     for (const userId of recipientIds) {
       const userDoc = await admin.firestore().collection('users').doc(userId).get();
       const userData = userDoc.data();
       if (userData && userData.fcmToken) {
-        tokens.push(userData.fcmToken);
-      }
-    }
+        
+        const payload: admin.messaging.MessagingPayload = {
+          notification: {
+            title: `New message from ${senderData.displayName}`,
+            body: messageText,
+            icon: senderData.photoURL || undefined,
+            click_action: `https://voxalo-x.web.app/`
+          },
+          data: {
+            sender: JSON.stringify(senderData),
+            message: JSON.stringify(message),
+            soundEnabled: String(userData.notificationSounds || false),
+            chatId: chatId,
+          }
+        };
 
-    if (tokens.length > 0) {
-      await admin.messaging().sendToDevice(tokens, payload);
+        try {
+          await admin.messaging().sendToDevice(userData.fcmToken, payload);
+          tokens.push(userData.fcmToken);
+        } catch (error) {
+            console.error(`Failed to send notification to user ${userId}`, error);
+        }
+      }
     }
   });

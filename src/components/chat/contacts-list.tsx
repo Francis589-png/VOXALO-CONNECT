@@ -13,7 +13,7 @@ import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
 import { Users, File, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useNewMessageNotification } from '../providers/new-message-notification-provider';
+import { getMessagePreview } from '@/lib/utils';
 
 interface ContactsListProps {
   selectedChatId: string | null | undefined;
@@ -21,25 +21,9 @@ interface ContactsListProps {
   search: string;
 }
 
-function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChatId }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User, selectedChatId: string | null | undefined }) {
+function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User }) {
     const unreadCount = useUnreadCount(chat.id, currentUser?.uid);
     const [otherUser, setOtherUser] = useState<User | undefined>();
-    const { showNotification } = useNewMessageNotification();
-
-    useEffect(() => {
-        if (!chat.lastMessage || chat.lastMessage.senderId === currentUser.uid || chat.id === selectedChatId) return;
-        
-        const lastMessageTimestamp = (chat.lastMessage.timestamp as any)?.toMillis();
-        // Check if the message is recent (e.g., within the last 5 seconds) to avoid showing old notifications on load
-        const fiveSecondsAgo = Date.now() - 5000;
-
-        if (lastMessageTimestamp > fiveSecondsAgo) {
-            const sender = chat.userInfos.find(u => u.uid === chat.lastMessage?.senderId);
-            if (sender) {
-                 showNotification(sender, chat.lastMessage as Message);
-            }
-        }
-    }, [chat.lastMessage, currentUser.uid, showNotification, chat.id, selectedChatId, chat.userInfos]);
 
     useEffect(() => {
         if (chat.isGroup) return;
@@ -64,7 +48,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
 
     const isOnline = !chat.isGroup && otherUser?.status === 'online';
     
-    const getLastMessagePreview = () => {
+    const getLastMessagePreviewText = () => {
         const lastMessage = chat.lastMessage;
         if (!lastMessage) return chat.isGroup ? 'Group Chat' : otherUser?.statusMessage || 'No messages yet';
 
@@ -77,15 +61,8 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
         } else if (lastMessage.senderId === currentUser.uid) {
             prefix = 'You: ';
         }
-
-        switch (lastMessage.type) {
-            case 'image':
-                return <div className='flex items-center gap-1.5'><ImageIcon className='h-3 w-3' />{prefix}Image</div>
-            case 'file':
-                return <div className='flex items-center gap-1.5'><File className='h-3 w-3' />{prefix}File</div>
-            default:
-                return `${prefix}${lastMessage.text}`;
-        }
+        
+        return `${prefix}${getMessagePreview(lastMessage as Message)}`;
     }
 
 
@@ -117,9 +94,9 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
                         </Badge>
                     )}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">
-                    {getLastMessagePreview()}
-                </p>
+                <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+                    {getLastMessagePreviewText()}
+                </div>
             </div>
         </button>
     );
@@ -190,7 +167,6 @@ export default function ContactsList({
                 isSelected={selectedChatId === chat.id}
                 onSelectChat={onSelectChat}
                 currentUser={currentUser as User}
-                selectedChatId={selectedChatId}
             />
         ))}
         </div>

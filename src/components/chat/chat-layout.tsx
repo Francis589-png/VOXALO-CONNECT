@@ -1,8 +1,8 @@
 
 'use client';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import type { Chat, User } from '@/types';
@@ -37,13 +37,13 @@ import AssistantView from './assistant-view';
 
 interface ChatLayoutProps {
   currentUser: FirebaseUser;
+  initialChatId?: string | null;
 }
 
-export default function ChatLayout({ currentUser }: ChatLayoutProps) {
+export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
-  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const isMobile = useIsMobile();
   const totalUnreadCount = useTotalUnreadCount(currentUser.uid);
   const [isAssistantSelected, setIsAssistantSelected] = useState(false);
@@ -53,6 +53,25 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
       requestNotificationPermission(currentUser.uid);
     }
   }, [currentUser.uid]);
+
+  const handleSelectChat = useCallback((chat: Chat) => {
+    setSelectedChat(chat);
+    setIsAssistantSelected(false);
+  }, []);
+
+  useEffect(() => {
+    const fetchInitialChat = async () => {
+        if (initialChatId && !selectedChat) {
+            const chatRef = doc(db, 'chats', initialChatId);
+            const chatSnap = await getDoc(chatRef);
+            if (chatSnap.exists()) {
+                handleSelectChat({ id: chatSnap.id, ...chatSnap.data() } as Chat);
+            }
+        }
+    };
+    fetchInitialChat();
+  }, [initialChatId, selectedChat, handleSelectChat]);
+
 
   useEffect(() => {
     if (!currentUser) return;
@@ -64,12 +83,6 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
     });
     return () => unsubscribe();
   }, [currentUser]);
-
-  const handleSelectChat = (chat: Chat) => {
-    setSelectedChat(chat);
-    setIsAssistantSelected(false);
-    setIsCreatingGroup(false);
-  };
   
   const handleSelectAssistant = () => {
     setSelectedChat(null);
@@ -80,10 +93,6 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
     setSelectedChat(null);
     setIsAssistantSelected(false);
   };
-
-  const filteredUsers = users.filter((u) =>
-    u.displayName?.toLowerCase().includes(search.toLowerCase())
-  );
 
   const isChatVisible = isAssistantSelected || selectedChat;
 
