@@ -30,6 +30,7 @@ import {
   Bot,
   Video,
   Phone,
+  ArrowLeft,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -63,6 +64,7 @@ const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 interface ChatViewProps {
   currentUser: FirebaseUser;
   selectedChat: Chat | null;
+  onBack?: () => void;
 }
 
 function ReadReceipt({
@@ -267,7 +269,7 @@ function MessageBubble({
   );
 }
 
-export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
+export default function ChatView({ currentUser, selectedChat, onBack }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -692,7 +694,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const initialOtherUser = chatData?.userInfos?.find(u => u.uid !== currentUser.uid);
 
   return (
-    <div className="flex h-full max-h-screen flex-col relative">
+    <div className="flex h-full max-h-screen flex-col relative w-full">
       <AlertDialog open={incomingCall} onOpenChange={setIncomingCall}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -720,6 +722,11 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         />
       )}
       <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
+        {onBack && (
+            <Button onClick={onBack} variant="ghost" size="icon" className='md:hidden'>
+                <ArrowLeft className="h-5 w-5" />
+            </Button>
+        )}
         <div className='relative'>
             <Avatar className="h-10 w-10">
             {isKingAjChat ? (
@@ -873,5 +880,3 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     </div>
   );
 }
-
-    

@@ -25,6 +25,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import CreateGroupDialog from './create-group-dialog';
 import { requestNotificationPermission } from '@/lib/firebase-messaging';
+import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 interface ChatLayoutProps {
@@ -36,6 +38,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default' && currentUser.uid) {
@@ -58,6 +61,10 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
     setSelectedChat(chat);
     setIsCreatingGroup(false);
   };
+  
+  const handleBack = () => {
+    setSelectedChat(null);
+  };
 
   const filteredUsers = users.filter((u) =>
     u.displayName?.toLowerCase().includes(search.toLowerCase())
@@ -65,7 +72,10 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
 
   return (
     <div className="flex h-screen w-full">
-      <div className="flex h-full max-h-screen w-full flex-col md:w-80 md:border-r">
+      <div className={cn(
+          "flex h-full max-h-screen w-full flex-col md:w-80 md:border-r",
+          isMobile && selectedChat && "hidden"
+      )}>
         <div className="flex items-center justify-between border-b p-4">
           <div className="flex items-center gap-2">
             <Icons.logo className="h-8 w-8 text-primary" />
@@ -148,8 +158,12 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
           </TabsContent>
         </Tabs>
       </div>
-      <div className="hidden flex-1 md:flex">
-        <ChatView currentUser={currentUser} selectedChat={selectedChat} />
+      <div className={cn("flex-1", (!isMobile || selectedChat) ? "flex" : "hidden")}>
+        <ChatView 
+            currentUser={currentUser} 
+            selectedChat={selectedChat}
+            onBack={isMobile ? handleBack : undefined}
+        />
       </div>
     </div>
   );
