@@ -276,8 +276,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const [isBotTyping, setIsBotTyping] = useState(false);
-
+  
   const isKingAjChat = selectedChat?.id === 'king-aj-bot';
 
   const canChat =
@@ -377,7 +376,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
         }
       }, 100);
     }
-  }, [messages, selectedChat, isBotTyping]);
+  }, [messages, selectedChat]);
   
   const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
     if (!chatId) return;
@@ -422,16 +421,14 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             type: 'text',
         };
         setMessages(prev => [...prev, userMessage]);
-        setIsBotTyping(true);
-
+        
         const history = messages.map(m => ({
           role: m.senderId === currentUser.uid ? 'user' : 'model',
           content: m.text || '',
         }));
 
         const botResponseText = await kingAjChat({ history, message: text });
-        setIsBotTyping(false);
-
+        
         const botMessage: Message = {
             id: `bot-${Date.now()}`,
             text: botResponseText,
@@ -700,20 +697,6 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                   />
                 );
               })}
-              {isBotTyping && (
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
-                    </Avatar>
-                    <div className="p-2.5 bg-card rounded-lg">
-                      <div className="flex items-center gap-1">
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.3s]" />
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:-0.15s]" />
-                        <span className="h-2 w-2 bg-muted-foreground rounded-full animate-bounce" />
-                      </div>
-                    </div>
-                  </div>
-                )}
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
@@ -753,13 +736,13 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                         }}
                         placeholder={isKingAjChat ? 'Ask King AJ...' : 'Type a message...'}
                         autoComplete="off"
-                        disabled={uploading || isBotTyping}
+                        disabled={uploading}
                     />
                     {newMessage.trim() ? (
                         <Button
                             type="submit"
                             size="icon"
-                            disabled={uploading || isBotTyping}
+                            disabled={uploading}
                         >
                             <Send className="h-5 w-5" />
                         </Button>
