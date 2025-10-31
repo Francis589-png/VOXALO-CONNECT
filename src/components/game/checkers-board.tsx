@@ -19,13 +19,15 @@ const getValidMoves = (board: Board, row: number, col: number): Move[] => {
 
   const moves: Move[] = [];
   const { player, isKing } = piece;
-  const directions =
-    player === 'red'
-      ? [{ r: -1, c: -1 }, { r: -1, c: 1 }]
-      : [{ r: 1, c: -1 }, { r: 1, c: 1 }];
   
+  let directions: {r: number, c: number}[];
+
   if (isKing) {
-    directions.push({r: 1, c: -1}, {r: 1, c: 1}, {r: -1, c: -1}, {r: -1, c: 1});
+    directions = [{ r: -1, c: -1 }, { r: -1, c: 1 }, { r: 1, c: -1 }, { r: 1, c: 1 }];
+  } else if (player === 'red') {
+    directions = [{ r: -1, c: -1 }, { r: -1, c: 1 }];
+  } else {
+    directions = [{ r: 1, c: -1 }, { r: 1, c: 1 }];
   }
 
   // Jumps first - if a jump is available, it must be taken.
