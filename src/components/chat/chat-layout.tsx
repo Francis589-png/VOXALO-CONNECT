@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import CreateGroupDialog from './create-group-dialog';
+import { requestNotificationPermission } from '@/lib/firebase-messaging';
+
 
 interface ChatLayoutProps {
   currentUser: FirebaseUser;
@@ -34,6 +36,12 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default' && currentUser.uid) {
+      requestNotificationPermission(currentUser.uid);
+    }
+  }, [currentUser.uid]);
 
   useEffect(() => {
     if (!currentUser) return;
