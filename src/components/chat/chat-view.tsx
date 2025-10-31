@@ -91,38 +91,9 @@ function ReadReceipt({
 
 function AudioPlayer({ src }: { src: string }) {
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-
-  useEffect(() => {
-    const audio = new Audio(src);
-    audioRef.current = audio;
-
-    const setAudioData = () => {
-      setDuration(audio.duration);
-    };
-
-    const setAudioTime = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const handleEnd = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-
-    audio.addEventListener('loadeddata', setAudioData);
-    audio.addEventListener('timeupdate', setAudioTime);
-    audio.addEventListener('ended', handleEnd);
-
-    return () => {
-      audio.removeEventListener('loadeddata', setAudioData);
-      audio.removeEventListener('timeupdate', setAudioTime);
-      audio.removeEventListener('ended', handleEnd);
-      audio.pause();
-    };
-  }, [src]);
 
   const togglePlayPause = () => {
     if (audioRef.current) {
@@ -134,6 +105,23 @@ function AudioPlayer({ src }: { src: string }) {
       setIsPlaying(!isPlaying);
     }
   };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedData = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
   
   const formatTime = (time: number) => {
     if (isNaN(time) || time === 0) return '0:00';
@@ -144,12 +132,20 @@ function AudioPlayer({ src }: { src: string }) {
 
   return (
     <div className="flex items-center gap-2 w-64">
+      <audio
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedData={handleLoadedData}
+        onEnded={handleEnded}
+        className="hidden"
+      />
       <Button onClick={togglePlayPause} size="icon" variant="outline" className='rounded-full h-10 w-10'>
         {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
       </Button>
       <div className="flex-1 flex flex-col gap-1">
         <div className='w-full bg-muted rounded-full h-1.5'>
-            <div className='bg-primary h-1.5 rounded-full' style={{ width: `${(currentTime / duration) * 100}%` }}></div>
+            <div className='bg-primary h-1.5 rounded-full' style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}></div>
         </div>
         <div className="text-xs text-right">
             {formatTime(currentTime)} / {formatTime(duration)}
@@ -516,7 +512,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             }
             setIsRecording(false);
             setRecordingTime(0);
-            // Stop all tracks on the stream before creating the blob
+            
             stream.getTracks().forEach(track => track.stop());
 
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
