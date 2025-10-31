@@ -44,8 +44,13 @@ const assistantFlow = ai.defineFlow(
     outputSchema: AssistantOutputSchema,
   },
   async (input) => {
+    // Separate the last message (the prompt) from the rest of the history.
+    const history = input.history.slice(0, -1);
+    const prompt = input.history[input.history.length - 1];
+
     const { output } = await ai.generate({
-      prompt: input.history,
+      prompt: prompt,
+      history: history,
       model: 'googleai/gemini-2.5-flash',
       config: {
         temperature: 0.7,
@@ -55,3 +60,4 @@ const assistantFlow = ai.defineFlow(
     return output?.text ?? 'Sorry, I could not generate a response.';
   }
 );
+
