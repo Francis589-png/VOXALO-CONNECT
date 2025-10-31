@@ -39,13 +39,15 @@ export default function JitsiMeet({ roomName, displayName, onClose }: JitsiMeetP
                     roomName={roomName}
                     userInfo={{ displayName }}
                     configOverwrite={{
-                        startWithAudioMuted: false,
-                        startWithVideoMuted: true,
+                        startWithAudioMuted: true,
+                        startWithVideoMuted: false,
                         disableModeratorIndicator: true,
                         startScreenSharing: false,
                         enableEmailInStats: false,
                         prejoinPageEnabled: false,
                         disableThirdPartyRequests: true,
+                        'analytics.disabled': true,
+                        channelLastN: -1,
                     }}
                     interfaceConfigOverwrite={{
                         TOOLBAR_BUTTONS: [
@@ -63,6 +65,7 @@ export default function JitsiMeet({ roomName, displayName, onClose }: JitsiMeetP
                         APP_NAME: 'VoxaLo Connect',
                         NATIVE_APP_NAME: 'VoxaLo Connect',
                         HIDE_INVITE_MORE_HEADER: true,
+                        DISABLE_JOIN_LEAVE_NOTIFICATIONS: true,
                     }}
                     onApiReady={handleApiReady}
                     getIFrameRef={(iframeRef) => {
