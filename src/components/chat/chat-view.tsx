@@ -29,6 +29,8 @@ import {
   Reply,
   X,
   User,
+  Pencil,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -66,26 +68,56 @@ function ReadReceipt({
   isOwnMessage,
   readBy,
   chat,
+  userInfos,
 }: {
   isOwnMessage: boolean;
   readBy: string[] | undefined;
   chat: Chat;
+  userInfos: AppUser[];
 }) {
   if (!isOwnMessage) return null;
 
-  const allRead = chat.users.every(
-    (userId) => userId === isOwnMessage || readBy?.includes(userId)
-  );
+  // Filter out the current user from the readBy list and total user list
+  const otherUsersInChat = chat.users.filter(uid => uid !== isOwnMessage);
+  const otherUsersWhoRead = readBy?.filter(uid => uid !== isOwnMessage) || [];
 
-  if (allRead) {
-    return <CheckCheck className="h-4 w-4 text-blue-500" />;
-  }
-  
-  if(readBy && readBy.length > 0) {
-    return <CheckCheck className="h-4 w-4 text-muted-foreground" />;
+  const allRead = otherUsersInChat.every(userId => otherUsersWhoRead.includes(userId));
+
+  const ReadIcon = allRead ? CheckCheck : otherUsersWhoRead.length > 0 ? CheckCheck : Check;
+  const iconColor = allRead ? 'text-blue-500' : 'text-muted-foreground';
+
+  if (chat.isGroup) {
+    const readers = userInfos.filter(u => otherUsersWhoRead.includes(u.uid));
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+            <button disabled={readers.length === 0} className='disabled:cursor-not-allowed'>
+                <ReadIcon className={`h-4 w-4 ${iconColor}`} />
+            </button>
+        </PopoverTrigger>
+        <PopoverContent className="p-2 w-64">
+            <div className='flex flex-col gap-2'>
+                <p className='font-medium border-b pb-2 px-2'>Read by</p>
+                <ScrollArea className='max-h-48'>
+                    <div className='flex flex-col gap-1 p-1'>
+                        {readers.map(user => (
+                            <div key={user.uid} className="flex items-center gap-2 p-1 rounded-md">
+                                <Avatar className='h-7 w-7'>
+                                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
+                                    <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className='text-sm'>{user.displayName}</span>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+             </div>
+        </PopoverContent>
+      </Popover>
+    );
   }
 
-  return <Check className="h-4 w-4 text-muted-foreground" />;
+  return <ReadIcon className={`h-4 w-4 ${iconColor}`} />;
 }
 
 
@@ -99,6 +131,7 @@ function MessageBubble({
   currentUser,
   chat,
   sender,
+  onSaveEdit,
 }: {
   message: Message;
   isOwnMessage: boolean;
@@ -109,7 +142,11 @@ function MessageBubble({
   currentUser: FirebaseUser;
   chat: Chat;
   sender: AppUser | undefined;
+  onSaveEdit: (messageId: string, newText: string) => void;
 }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(message.text || '');
+
   const date = (message.timestamp as any)?.toDate
     ? (message.timestamp as any).toDate()
     : new Date();
@@ -124,8 +161,40 @@ function MessageBubble({
     if (type === 'file') return fileName || 'File';
     return text;
   }
+  
+  const handleSaveEdit = () => {
+    if (editText.trim() !== message.text) {
+        onSaveEdit(message.id, editText.trim());
+    }
+    setIsEditing(false);
+  }
 
   const renderContent = () => {
+    if (isEditing) {
+        return (
+            <div className='flex flex-col gap-2'>
+                <Input
+                    value={editText}
+                    onChange={(e) => setEditText(e.target.value)}
+                    className="bg-card text-card-foreground"
+                    autoFocus
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSaveEdit();
+                        } else if (e.key === 'Escape') {
+                            setIsEditing(false);
+                        }
+                    }}
+                />
+                 <div className="flex justify-end gap-2 text-xs">
+                    <Button variant="link" size="sm" className="p-0 h-auto text-primary-foreground/80" onClick={() => setIsEditing(false)}>Cancel</Button>
+                    <Button variant="link" size="sm" className="p-0 h-auto text-primary-foreground/80" onClick={handleSaveEdit}>Save</Button>
+                 </div>
+            </div>
+        )
+    }
+
     if (message.type === 'image' && message.imageURL) {
         return (
             <Image 
@@ -158,6 +227,10 @@ function MessageBubble({
 
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
   const bubblePadding = message.type === 'image' ? 'p-1' : 'p-2.5';
+  
+  if (message.deletedFor?.includes(currentUser.uid)) {
+    return null;
+  }
 
   return (
     <div
@@ -216,9 +289,10 @@ function MessageBubble({
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
             hasReactions ? 'pt-2' : '',
-            message.type !== 'image' && !message.replyTo && 'px-2.5 pb-2.5'
+            (message.type !== 'image' && !message.replyTo) && !isEditing && 'px-2.5 pb-2.5'
           )}
         >
+          {message.editedAt && <span className="text-xs italic">edited</span>}
           <span>
             {formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)}
           </span>
@@ -226,58 +300,67 @@ function MessageBubble({
             isOwnMessage={isOwnMessage}
             readBy={message.readBy}
             chat={chat}
+            userInfos={chat.userInfos}
           />
         </div>
       </div>
-      <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onReply(message)}>
-            <Reply className="h-4 w-4" />
-        </Button>
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <Smile className="h-4 w-4" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-1">
-                <div className="flex gap-1">
-                    {EMOJI_REACTIONS.map(emoji => (
-                        <Button
-                            key={emoji}
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => onReact(message.id, emoji)}
-                            className={cn("h-8 w-8 text-lg rounded-full", message.reactions?.[emoji]?.includes(currentUser.uid) && "bg-muted")}
-                        >
-                            {emoji}
-                        </Button>
-                    ))}
-                </div>
-            </PopoverContent>
-        </Popover>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-7 w-7">
-              <MoreHorizontal className="h-4 w-4" />
+      {!isEditing && (
+         <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onReply(message)}>
+                <Reply className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align={isOwnMessage ? 'end' : 'start'}>
-            <DropdownMenuItem onClick={() => onDeleteForMe(message.id)}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span>Delete for me</span>
-            </DropdownMenuItem>
-            {isOwnMessage && (
-              <DropdownMenuItem
-                className="text-red-500"
-                onClick={() => onDeleteForEveryone(message.id)}
-              >
-                <Trash className="mr-2 h-4 w-4" />
-                <span>Delete for everyone</span>
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <Smile className="h-4 w-4" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-1">
+                    <div className="flex gap-1">
+                        {EMOJI_REACTIONS.map(emoji => (
+                            <Button
+                                key={emoji}
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onReact(message.id, emoji)}
+                                className={cn("h-8 w-8 text-lg rounded-full", message.reactions?.[emoji]?.includes(currentUser.uid) && "bg-muted")}
+                            >
+                                {emoji}
+                            </Button>
+                        ))}
+                    </div>
+                </PopoverContent>
+            </Popover>
+            <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <MoreHorizontal className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align={isOwnMessage ? 'end' : 'start'}>
+                {isOwnMessage && message.type === 'text' && (
+                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => onDeleteForMe(message.id)}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Delete for me</span>
+                </DropdownMenuItem>
+                {isOwnMessage && (
+                <DropdownMenuItem
+                    className="text-red-500"
+                    onClick={() => onDeleteForEveryone(message.id)}
+                >
+                    <Trash className="mr-2 h-4 w-4" />
+                    <span>Delete for everyone</span>
+                </DropdownMenuItem>
+                )}
+            </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 }
@@ -354,14 +437,14 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const messagesData = snapshot.docs
         .map((doc) => ({ id: doc.id, ...doc.data() } as Message))
-        .filter((msg) => !msg.deletedFor?.includes(currentUser.uid));
 
       setMessages(messagesData);
 
       messagesData.forEach((message) => {
         if (
           message.senderId !== currentUser.uid &&
-          !message.readBy?.includes(currentUser.uid)
+          !message.readBy?.includes(currentUser.uid) &&
+          !(message.deletedFor || []).includes(currentUser.uid)
         ) {
           const messageRef = doc(
             db,
@@ -393,7 +476,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
     
     let fullMessageData: any = { ...messageData };
@@ -530,6 +613,15 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
         }
     }
   };
+  
+  const handleSaveEdit = async (messageId: string, newText: string) => {
+    if (!chatId) return;
+    const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+    await updateDoc(messageRef, {
+        text: newText,
+        editedAt: serverTimestamp(),
+    });
+  };
 
   const getChatName = () => {
     if (!chatData) return '';
@@ -547,7 +639,8 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     if (!chatData) return null;
 
     if (chatData.isGroup) {
-      return `${chatData.users.length} members`;
+      const memberNames = chatData.userInfos.map(u => u.uid === currentUser.uid ? 'You' : u.displayName?.split(' ')[0]).slice(0, 3);
+      return `${memberNames.join(', ')}${chatData.userInfos.length > 3 ? ` and ${chatData.userInfos.length - 3} more` : ''}`;
     }
     
     if (otherUser?.status === 'online') {
@@ -627,7 +720,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
                     <DropdownMenuItem>
-                        <Users className="mr-2 h-4 w-4" />
+                        <UsersIcon className="mr-2 h-4 w-4" />
                         <span>Group Info</span>
                     </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -639,6 +732,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
           <ScrollArea className="flex-1 z-10" ref={scrollAreaRef}>
             <div className="p-6 space-y-4">
               {messages.map((message) => {
+                if (message.deletedFor?.includes(currentUser.uid)) return null;
                 const isOwnMessage = message.senderId === currentUser.uid;
                 const sender = chatData?.userInfos?.find(u => u.uid === message.senderId);
 
@@ -654,6 +748,7 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
                     currentUser={currentUser}
                     chat={chatData!}
                     sender={sender}
+                    onSaveEdit={handleSaveEdit}
                   />
                 );
               })}
@@ -728,3 +823,5 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     </div>
   );
 }
+
+    

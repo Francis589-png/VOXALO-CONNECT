@@ -36,6 +36,7 @@ export interface Message {
     imageURL?: string;
     fileName?: string;
   };
+  editedAt?: Timestamp;
 }
 
 export interface Chat {
@@ -65,3 +66,5 @@ export type Friendship = {
   userInfos: { [key: string]: User };
   friend: User;
 };
+
+    
