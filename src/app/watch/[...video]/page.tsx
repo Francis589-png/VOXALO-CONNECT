@@ -34,9 +34,9 @@ export default function VideoPlayerPage() {
 
   const isArchiveVideo = videoUrl.includes('archive.org');
   
-  // For Internet Archive, we need to construct an embed URL
-  const embedUrl = isArchiveVideo 
-    ? videoUrl.replace('/download/', '/embed/') 
+  // For Internet Archive, we need to construct an embed URL from the identifier
+  const embedUrl = isArchiveVideo
+    ? `https://archive.org/embed/${videoUrl.split('/')[4]}`
     : videoUrl;
 
 
