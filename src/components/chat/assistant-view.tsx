@@ -1,18 +1,20 @@
 
 'use client';
 
-import { ArrowLeft, Send, Sparkles, User } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, User, Image as ImageIcon, Bot } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatRelative } from 'date-fns';
 import type { User as FirebaseUser } from 'firebase/auth';
 import type { Message } from '@/types';
 import { cn } from '@/lib/utils';
 import { chatWithAssistant } from '@/ai/flows/assistant-flow';
+import { generateImage } from '@/ai/flows/image-generation-flow';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { Textarea } from '../ui/textarea';
+import Image from 'next/image';
 
 
 function MessageBubble({
@@ -26,6 +28,21 @@ function MessageBubble({
 }) {
   const date = new Date(message.timestamp as any);
   const formattedDate = date ? formatRelative(date, new Date()) : '';
+
+  const renderContent = () => {
+    if (message.type === 'image' && message.imageURL) {
+        return (
+            <Image 
+                src={message.imageURL}
+                alt={message.text || 'Generated image'}
+                width={400}
+                height={400}
+                className="rounded-md object-cover"
+            />
+        );
+    }
+    return <p className="text-sm break-words">{message.text}</p>;
+  }
 
   return (
     <div
@@ -48,11 +65,12 @@ function MessageBubble({
       )}
       <div
         className={cn(
-          'max-w-md rounded-lg flex flex-col p-3',
-          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card'
+          'max-w-md rounded-lg flex flex-col',
+          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card',
+          message.type === 'image' ? 'p-1' : 'p-3',
         )}
       >
-        <p className="text-sm break-words">{message.text}</p>
+        {renderContent()}
         <div
           className={cn(
             'flex items-center gap-2 text-xs mt-1.5 self-end',
@@ -96,40 +114,54 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isLoading]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      text: newMessage,
-      senderId: 'user',
-      timestamp: new Date(),
-      type: 'text',
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const text = newMessage;
     setNewMessage('');
     setIsLoading(true);
-
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
 
+    const userMessage: Message = {
+      id: `user-${Date.now()}`,
+      text: text,
+      senderId: 'user',
+      timestamp: new Date(),
+      type: 'text',
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
     try {
-      const responseText = await chatWithAssistant([...messages, userMessage]);
-      const assistantMessage: Message = {
-        id: `ai-${Date.now()}`,
-        text: responseText,
-        senderId: 'ai',
-        timestamp: new Date(),
-        type: 'text',
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+        if (text.startsWith('/imagine ')) {
+            const prompt = text.substring(9);
+            const imageUrl = await generateImage(prompt);
+            const assistantMessage: Message = {
+                id: `ai-${Date.now()}`,
+                text: `Here is your image for: "${prompt}"`,
+                imageURL: imageUrl,
+                senderId: 'ai',
+                timestamp: new Date(),
+                type: 'image',
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+        } else {
+            const responseText = await chatWithAssistant([...messages, userMessage]);
+            const assistantMessage: Message = {
+                id: `ai-${Date.now()}`,
+                text: responseText,
+                senderId: 'ai',
+                timestamp: new Date(),
+                type: 'text',
+            };
+            setMessages((prev) => [...prev, assistantMessage]);
+        }
     } catch (error) {
-      console.error("Error chatting with assistant:", error);
+      console.error("Error with AI assistant:", error);
       const errorMessage: Message = {
         id: `err-${Date.now()}`,
         text: 'Sorry, I ran into an error. Please try again.',
@@ -165,6 +197,14 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
         <>
           <ScrollArea className="flex-1 z-0" ref={scrollAreaRef}>
             <div className="p-6 space-y-4">
+              {messages.length === 0 && !isLoading && (
+                  <div className='text-center text-muted-foreground pt-16'>
+                    <Bot className='h-12 w-12 mx-auto mb-4' />
+                    <h3 className='text-lg font-semibold'>VoxaLo AI Assistant</h3>
+                    <p className='text-sm'>You can ask me anything or try generating an image!</p>
+                    <p className='text-xs mt-4'>e.g., <code className='bg-muted p-1 rounded-md'>/imagine a cat wearing glasses</code></p>
+                  </div>
+              )}
               {messages.map((message) => {
                 const isOwnMessage = message.senderId === 'user';
                 return (
@@ -209,7 +249,7 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
                             handleSendMessage(e);
                         }
                     }}
-                    placeholder='Ask VoxaLo AI...'
+                    placeholder='Ask VoxaLo AI or type /imagine...'
                     autoComplete="off"
                     disabled={isLoading}
                     className="bg-background/80"
