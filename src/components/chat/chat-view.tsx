@@ -1,3 +1,4 @@
+
 'use client';
 import {
   addDoc,
@@ -173,7 +174,7 @@ function MessageBubble({
             <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
         </Avatar>
        )}
-       {chat.id === 'king-aj-bot' && !isOwnMessage && (
+       {chat.id === 'king-aj-bot' && !isOwnMessage && !message.isLoading && (
         <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary text-primary-foreground"><Icons.bot className="h-5 w-5" /></AvatarFallback>
         </Avatar>
@@ -203,7 +204,7 @@ function MessageBubble({
                 </div>
             )}
         </div>
-        <div
+        {!message.isLoading && <div
           className={cn(
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
@@ -219,7 +220,7 @@ function MessageBubble({
             readBy={message.readBy}
             chat={chat}
           /> }
-        </div>
+        </div>}
       </div>
       <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
         <Popover>
