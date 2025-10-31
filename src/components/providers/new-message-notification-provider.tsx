@@ -5,7 +5,7 @@ import type { User, Message } from '@/types';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface NewMessageNotificationContextType {
@@ -21,19 +21,27 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
   const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    setAudio(new Audio('/notification.mp3'));
-  }, []);
+    // We can safely create the Audio object once on the client.
+    if (typeof window !== 'undefined' && !audio) {
+        setAudio(new Audio('/notification.mp3'));
+    }
+  }, [audio]);
 
   useEffect(() => {
     if (user?.uid) {
       const userDocRef = doc(db, 'users', user.uid);
-      getDoc(userDocRef).then((docSnap) => {
+      // Listen for real-time updates to the user document
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists() && docSnap.data().notificationSounds) {
           setSoundEnabled(true);
         } else {
           setSoundEnabled(false);
         }
       });
+      // Clean up the listener when the component unmounts or user changes
+      return () => unsubscribe();
+    } else {
+        setSoundEnabled(false);
     }
   }, [user]);
 
@@ -52,7 +60,9 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
   const showNotification = useCallback((sender: User, message: Message) => {
     if (soundEnabled && audio) {
         audio.play().catch(error => {
-          console.error("Failed to play notification sound:", error);
+          // This error is expected if the user hasn't interacted with the page yet.
+          // We don't need to log it aggressively.
+          console.log("Could not play notification sound:", error.message);
         });
     }
 
