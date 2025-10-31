@@ -28,7 +28,7 @@ import CreateGroupDialog from './create-group-dialog';
 import { requestNotificationPermission } from '@/lib/firebase-messaging';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
-import FreeToGamePage from './freetogame-page';
+import GamesBrowserPage from './games-browser-page';
 
 
 interface ChatLayoutProps {
@@ -160,8 +160,8 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
               search={search}
             />
           </TabsContent>
-          <TabsContent value="games" className="flex-1 overflow-y-auto mt-0">
-            <FreeToGamePage />
+          <TabsContent value="games" className="flex-1 overflow-y-auto mt-0 p-0">
+            <GamesBrowserPage />
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />

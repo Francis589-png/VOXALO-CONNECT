@@ -84,3 +84,14 @@ export interface Game {
     release_date: string;
     freetogame_profile_url: string;
 }
+
+export interface GameMonetizeGame {
+  id: string;
+  title: string;
+  description: string;
+  thumb: string;
+  url: string;
+  category: string;
+  width: string;
+  height: string;
+}
