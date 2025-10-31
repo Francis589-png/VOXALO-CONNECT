@@ -28,6 +28,13 @@ export function NewMessageNotificationProvider({ children }: { children: ReactNo
   }
 
   const showNotification = useCallback((sender: User, message: Message) => {
+    try {
+        const audio = new Audio('/notification.mp3');
+        audio.play().catch(e => console.error("Error playing notification sound:", e));
+    } catch (e) {
+        console.error("Could not play notification sound", e);
+    }
+    
     toast({
       description: (
         <div className="flex items-start gap-3">
