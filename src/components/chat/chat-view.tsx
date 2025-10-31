@@ -28,6 +28,8 @@ import {
   Paperclip,
   FileIcon,
   ArrowLeft,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -85,6 +87,78 @@ function ReadReceipt({
   return <Check className="h-4 w-4 text-muted-foreground" />;
 }
 
+
+function AudioPlayer({ src }: { src: string }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  useEffect(() => {
+    const audio = new Audio(src);
+    audioRef.current = audio;
+
+    const setAudioData = () => {
+      setDuration(audio.duration);
+    };
+
+    const setAudioTime = () => {
+      setCurrentTime(audio.currentTime);
+    };
+
+    const handleEnd = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('loadeddata', setAudioData);
+    audio.addEventListener('timeupdate', setAudioTime);
+    audio.addEventListener('ended', handleEnd);
+
+    return () => {
+      audio.removeEventListener('loadeddata', setAudioData);
+      audio.removeEventListener('timeupdate', setAudioTime);
+      audio.removeEventListener('ended', handleEnd);
+      audio.pause();
+    };
+  }, [src]);
+
+  const togglePlayPause = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+  
+  const formatTime = (time: number) => {
+    if (isNaN(time) || time === 0) return '0:00';
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+
+  return (
+    <div className="flex items-center gap-2 w-64">
+      <Button onClick={togglePlayPause} size="icon" variant="outline" className='rounded-full h-10 w-10'>
+        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </Button>
+      <div className="flex-1 flex flex-col gap-1">
+        <div className='w-full bg-muted rounded-full h-1.5'>
+            <div className='bg-primary h-1.5 rounded-full' style={{ width: `${(currentTime / duration) * 100}%` }}></div>
+        </div>
+        <div className="text-xs text-right">
+            {formatTime(currentTime)} / {formatTime(duration)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 function MessageBubble({
   message,
   isOwnMessage,
@@ -141,7 +215,7 @@ function MessageBubble({
     }
     if (message.type === 'audio' && message.audioURL) {
       return (
-        <audio controls src={message.audioURL} className="w-64" />
+        <AudioPlayer src={message.audioURL} />
       );
     }
     return <p className="text-sm break-words">{message.text}</p>;

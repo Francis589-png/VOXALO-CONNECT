@@ -11,7 +11,7 @@ export async function uploadFile(file: File): Promise<string> {
     }
 
     const data = new FormData();
-    data.append('file', file);
+    data.append('file', file, file.name);
 
     try {
         const res = await axios.post(
@@ -19,7 +19,7 @@ export async function uploadFile(file: File): Promise<string> {
             data,
             {
                 headers: {
-                    'Content-Type': `multipart/form-data; boundary=${(data as any)._boundary}`,
+                    'Content-Type': 'multipart/form-data',
                     Authorization: `Bearer ${PINATA_JWT}`,
                 },
             }
