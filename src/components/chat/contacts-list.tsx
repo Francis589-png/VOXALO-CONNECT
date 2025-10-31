@@ -16,20 +16,21 @@ import { cn } from '@/lib/utils';
 import { useNewMessageNotification } from '../providers/new-message-notification-provider';
 
 interface ContactsListProps {
-  selectedChat: Chat | null;
+  selectedChatId: string | null | undefined;
   onSelectChat: (chat: Chat) => void;
   search: string;
 }
 
-function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User, selectedChat: Chat | null }) {
+function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChatId }: { chat: Chat, isSelected: boolean, onSelectChat: (chat: Chat) => void, currentUser: User, selectedChatId: string | null | undefined }) {
     const unreadCount = useUnreadCount(chat.id, currentUser?.uid);
     const [otherUser, setOtherUser] = useState<User | undefined>();
     const { showNotification } = useNewMessageNotification();
 
     useEffect(() => {
-        if (!chat.lastMessage || chat.lastMessage.senderId === currentUser.uid || chat.id === selectedChat?.id) return;
+        if (!chat.lastMessage || chat.lastMessage.senderId === currentUser.uid || chat.id === selectedChatId) return;
         
         const lastMessageTimestamp = (chat.lastMessage.timestamp as any)?.toMillis();
+        // Check if the message is recent (e.g., within the last 5 seconds) to avoid showing old notifications on load
         const fiveSecondsAgo = Date.now() - 5000;
 
         if (lastMessageTimestamp > fiveSecondsAgo) {
@@ -38,7 +39,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
                  showNotification(sender, chat.lastMessage as Message);
             }
         }
-    }, [chat.lastMessage, currentUser.uid, showNotification, chat.id, selectedChat?.id, chat.userInfos]);
+    }, [chat.lastMessage, currentUser.uid, showNotification, chat.id, selectedChatId, chat.userInfos]);
 
     useEffect(() => {
         if (chat.isGroup) return;
@@ -73,6 +74,8 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
             if (sender) {
                 prefix = `${sender.displayName?.split(' ')[0]}: `;
             }
+        } else if (lastMessage.senderId === currentUser.uid) {
+            prefix = 'You: ';
         }
 
         switch (lastMessage.type) {
@@ -124,7 +127,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser, selectedChat
 
 
 export default function ContactsList({
-  selectedChat,
+  selectedChatId,
   onSelectChat,
   search,
 }: ContactsListProps) {
@@ -184,10 +187,10 @@ export default function ContactsList({
             <ContactItem 
                 key={chat.id} 
                 chat={chat}
-                isSelected={selectedChat?.id === chat.id}
+                isSelected={selectedChatId === chat.id}
                 onSelectChat={onSelectChat}
                 currentUser={currentUser as User}
-                selectedChat={selectedChat}
+                selectedChatId={selectedChatId}
             />
         ))}
         </div>

@@ -30,6 +30,8 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import GamesBrowserPage from './games-browser-page';
 import VideoBrowserPage from './video-browser-page';
+import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
+import { Badge } from '../ui/badge';
 
 
 interface ChatLayoutProps {
@@ -42,6 +44,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   const [search, setSearch] = useState('');
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const isMobile = useIsMobile();
+  const totalUnreadCount = useTotalUnreadCount(currentUser.uid);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default' && currentUser.uid) {
@@ -120,8 +123,13 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
           <div className='p-4'>
             <TabsList className="w-full grid grid-cols-4 gap-2">
-              <TabsTrigger value="contacts">
+              <TabsTrigger value="contacts" className='relative'>
                 Contacts
+                {totalUnreadCount > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 justify-center p-0">
+                    {totalUnreadCount}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="games">
                 <Swords className='h-4 w-4 mr-2'/>
@@ -160,7 +168,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
                 </Button>
             </CreateGroupDialog>
             <ContactsList
-              selectedChat={selectedChat}
+              selectedChatId={selectedChat?.id}
               onSelectChat={handleSelectChat}
               search={search}
             />
