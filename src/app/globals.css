@@ -104,20 +104,38 @@
       transform: scale(1);
     }
   }
-  .animate-splash-in {
-    animation: splash-in 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+
+  @keyframes draw-logo-bubble {
+    to {
+      stroke-dashoffset: 0;
+    }
   }
 
-  .animate-splash-in > div:nth-child(1) {
-    animation-delay: 0s;
+  @keyframes draw-logo-check {
+    to {
+      stroke-dashoffset: 0;
+    }
   }
+
+  .animate-logo-draw .logo-bubble {
+    stroke-dasharray: 250;
+    stroke-dashoffset: 250;
+    animation: draw-logo-bubble 1s ease-out forwards;
+  }
+
+  .animate-logo-draw .logo-check {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 50;
+    animation: draw-logo-check 0.5s ease-out 0.8s forwards;
+  }
+
   .animate-splash-in > div:nth-child(2) > h1 {
     opacity: 0;
-    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s forwards;
+    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1s forwards;
   }
   .animate-splash-in > div:nth-child(2) > p {
     opacity: 0;
-    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
+    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 1.2s forwards;
   }
 
 }
