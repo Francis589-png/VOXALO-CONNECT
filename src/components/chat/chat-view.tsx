@@ -53,6 +53,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
+import { processAudio } from '@/ai/flows/process-audio-flow';
+
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -139,6 +141,7 @@ function AudioPlayer({ src }: { src: string }) {
         onLoadedData={handleLoadedData}
         onEnded={handleEnded}
         className="hidden"
+        preload="metadata"
       />
       <Button onClick={togglePlayPause} size="icon" variant="outline" className='rounded-full h-10 w-10'>
         {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -483,6 +486,15 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
     await addMessageToChat(messageData);
   };
 
+    const blobToBase64 = (blob: Blob): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    };
+
   const handleToggleRecording = async () => {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
@@ -516,23 +528,28 @@ export default function ChatView({ currentUser, selectedChat, onBack }: ChatView
             stream.getTracks().forEach(track => track.stop());
 
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
             
             setUploading(true);
-            const audioURL = await uploadFile(audioFile);
-            setUploading(false);
-            
-            if (!chatData) return;
+            try {
+                const audioDataUri = await blobToBase64(audioBlob);
+                const { audioURL } = await processAudio({ audioDataUri });
+                
+                if (!chatData) return;
 
-            const messageData = {
-                type: 'audio' as const,
-                audioURL,
-                senderId: currentUser.uid,
-                timestamp: serverTimestamp(),
-                readBy: [currentUser.uid],
-                deletedFor: [],
-            };
-            await addMessageToChat(messageData);
+                const messageData = {
+                    type: 'audio' as const,
+                    audioURL,
+                    senderId: currentUser.uid,
+                    timestamp: serverTimestamp(),
+                    readBy: [currentUser.uid],
+                    deletedFor: [],
+                };
+                await addMessageToChat(messageData);
+            } catch (error) {
+                console.error("Error processing audio:", error);
+            } finally {
+                setUploading(false);
+            }
         };
         
         mediaRecorder.start();
