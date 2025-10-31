@@ -9,10 +9,10 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const ImageGenerationInputSchema = z.string();
+const ImageGenerationInputSchema = z.string();
 export type ImageGenerationInput = z.infer<typeof ImageGenerationInputSchema>;
 
-export const ImageGenerationOutputSchema = z.string();
+const ImageGenerationOutputSchema = z.string();
 export type ImageGenerationOutput = z.infer<typeof ImageGenerationOutputSchema>;
 
 
