@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -138,8 +139,14 @@ export default function GamesBrowserPage() {
                 </div>
             )
         }
+        
+        const validGames = games.filter(game => {
+            const g = game as any;
+            const thumbnailUrl = source === 'freetogame' ? g.thumbnail : g.thumb;
+            return thumbnailUrl && typeof thumbnailUrl === 'string';
+        });
 
-        if (games.length === 0) {
+        if (validGames.length === 0) {
             return (
                  <div className="p-4 col-span-full">
                     <Alert>
@@ -153,7 +160,7 @@ export default function GamesBrowserPage() {
             )
         }
         
-        return games.map((game, index) => (
+        return validGames.map((game, index) => (
             <GameCard key={`${source}-${(game as any).id}-${index}`} game={game} source={source} />
         ));
     };
