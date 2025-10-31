@@ -78,9 +78,9 @@ export type Piece = {
     isKing: boolean;
 }
 
-export type Square = Piece | null;
+export type SquareContent = Piece | null;
 
-export type Board = Square[][];
+export type Board = SquareContent[][];
 
 export interface Game {
     id: string;
@@ -96,4 +96,11 @@ export interface Game {
     winner?: Player;
     createdAt: Timestamp;
     updatedAt: Timestamp;
+}
+
+export type Move = {
+    from: { row: number, col: number };
+    to: { row: number, col: number };
+    isJump: boolean;
+    jumpedPiece?: { row: number, col: number };
 }

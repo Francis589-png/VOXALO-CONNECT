@@ -2,8 +2,8 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import type { User, Board, Game } from '@/types';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import type { User, Board, Game, Player } from '@/types';
+import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 
 const createInitialBoard = (): Board => {
@@ -49,4 +49,21 @@ export async function createCheckersGame(user1: User, user2: User): Promise<Game
     const docRef = await addDoc(collection(db, 'games'), newGame);
 
     return { id: docRef.id, ...newGame } as Game;
+}
+
+export async function updateGameState(gameId: string, newBoard: Board, nextPlayer: Player, winner?: Player) {
+    const gameRef = doc(db, 'games', gameId);
+    
+    const updateData: any = {
+        boardState: newBoard,
+        currentPlayer: nextPlayer,
+        updatedAt: serverTimestamp(),
+    };
+
+    if (winner) {
+        updateData.status = 'finished';
+        updateData.winner = winner;
+    }
+
+    await updateDoc(gameRef, updateData);
 }

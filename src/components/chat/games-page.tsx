@@ -14,29 +14,34 @@ import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Game, User } from '@/types';
 import { ScrollArea } from '../ui/scroll-area';
+import Link from 'next/link';
 
 function GameItem({ game, currentUser }: { game: Game, currentUser: User }) {
     const opponent = game.playerInfos.find(p => p.uid !== currentUser.uid);
     
     if (!opponent) return null;
 
+    const isOurTurn = game.players[game.currentPlayer] === currentUser.uid;
+
     return (
-        <button className='flex items-center gap-3 p-4 text-left w-full transition-colors hover:bg-accent/50'>
-            <div className="relative">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={opponent.photoURL || undefined} alt={opponent.displayName!} />
-                    <AvatarFallback>
-                        {opponent.displayName?.[0]}
-                    </AvatarFallback>
-                </Avatar>
-            </div>
-            <div className="flex-1 overflow-hidden">
-                 <p className="font-semibold truncate">{opponent.displayName}</p>
-                 <p className="text-xs text-muted-foreground truncate">
-                    Checkers - {game.status === 'pending' ? `Waiting for ${opponent.displayName}` : `Your turn`}
-                 </p>
-            </div>
-        </button>
+        <Link href={`/game/${game.id}`} className='block w-full text-left'>
+            <button className='flex items-center gap-3 p-4 text-left w-full transition-colors hover:bg-accent/50'>
+                <div className="relative">
+                    <Avatar className="h-10 w-10">
+                        <AvatarImage src={opponent.photoURL || undefined} alt={opponent.displayName!} />
+                        <AvatarFallback>
+                            {opponent.displayName?.[0]}
+                        </AvatarFallback>
+                    </Avatar>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                    <p className="font-semibold truncate">{opponent.displayName}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                        Checkers - {game.status === 'pending' ? `Waiting for ${opponent.displayName}` : (isOurTurn ? 'Your turn' : `${opponent.displayName}'s turn`)}
+                    </p>
+                </div>
+            </button>
+        </Link>
     )
 }
 
@@ -50,23 +55,17 @@ export default function GamesPage() {
 
     useEffect(() => {
         if (!currentUser) return;
+        
         const gamesRef = collection(db, 'games');
-        const q = query(gamesRef, where('players.red', '==', currentUser.uid));
-        const q2 = query(gamesRef, where('players.black', '==', currentUser.uid));
-
-        const unsub = onSnapshot(q, (snap) => {
-            const redGames = snap.docs.map(d => ({id: d.id, ...d.data()}) as Game);
-            setGames(prev => [...redGames, ...prev.filter(g => g.players.red !== currentUser.uid)]);
-        });
-        const unsub2 = onSnapshot(q2, (snap) => {
-            const blackGames = snap.docs.map(d => ({id: d.id, ...d.data()}) as Game);
-             setGames(prev => [...blackGames, ...prev.filter(g => g.players.black !== currentUser.uid)]);
+        const userIsPlayerQuery = query(gamesRef, where('players', 'array-contains', currentUser.uid));
+        
+        const unsub = onSnapshot(userIsPlayerQuery, (snap) => {
+            const gamesData = snap.docs.map(d => ({id: d.id, ...d.data()}) as Game);
+            gamesData.sort((a, b) => (b.updatedAt?.toMillis() || 0) - (a.updatedAt?.toMillis() || 0));
+            setGames(gamesData);
         });
 
-        return () => {
-            unsub();
-            unsub2();
-        }
+        return () => unsub();
     }, [currentUser]);
 
     const handleStartGame = async (opponent: User) => {
