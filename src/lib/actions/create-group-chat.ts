@@ -3,7 +3,7 @@
 import { db } from '@/lib/firebase';
 import { uploadFile } from '@/lib/pinata';
 import type { Chat, User } from '@/types';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 export async function createGroupChat(formData: FormData): Promise<Chat> {
   const name = formData.get('name') as string;
@@ -18,14 +18,21 @@ export async function createGroupChat(formData: FormData): Promise<Chat> {
     photoURL = await uploadFile(photo);
   }
 
+  const now = serverTimestamp();
+
   const chatRef = await addDoc(collection(db, 'chats'), {
     name,
     users: userIds,
     userInfos,
     isGroup: true,
     photoURL,
-    createdAt: serverTimestamp(),
+    createdAt: now,
     createdBy: userIds[0], // Assuming the creator is the first user
+    lastMessage: {
+        text: 'Group created',
+        senderId: userIds[0],
+        timestamp: now
+    }
   });
 
   return {
@@ -35,5 +42,6 @@ export async function createGroupChat(formData: FormData): Promise<Chat> {
     userInfos,
     isGroup: true,
     photoURL,
+    createdAt: Timestamp.now(),
   } as Chat;
 }

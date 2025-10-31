@@ -12,7 +12,7 @@ import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface ContactsListProps {
@@ -47,6 +47,23 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
     }
 
     const isOnline = !chat.isGroup && otherUser?.status === 'online';
+    
+    const getLastMessagePreview = () => {
+        const lastMessage = chat.lastMessage;
+        if (!lastMessage) return chat.isGroup ? 'Group Chat' : 'No messages yet';
+
+        switch (lastMessage.type) {
+            case 'image':
+                return <div className='flex items-center gap-1.5'><ImageIcon className='h-3 w-3' />Image</div>
+            case 'audio':
+                return <div className='flex items-center gap-1.5'><Mic className='h-3 w-3' />Audio</div>
+            case 'file':
+                return <div className='flex items-center gap-1.5'><File className='h-3 w-3' />File</div>
+            default:
+                return lastMessage.text;
+        }
+    }
+
 
     return (
         <button
@@ -77,7 +94,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
                     )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
-                    {chat.lastMessage?.text || (chat.isGroup ? 'Group Chat' : 'No messages yet')}
+                    {getLastMessagePreview()}
                 </p>
             </div>
         </button>
@@ -100,7 +117,11 @@ export default function ContactsList({
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
         const chatsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
-        chatsData.sort((a, b) => (b.lastMessage?.timestamp as any) - (a.lastMessage?.timestamp as any));
+        chatsData.sort((a, b) => {
+            const timeA = (a.lastMessage?.timestamp as any)?.toMillis() || (a.createdAt as any)?.toMillis() || 0;
+            const timeB = (b.lastMessage?.timestamp as any)?.toMillis() || (b.createdAt as any)?.toMillis() || 0;
+            return timeB - timeA;
+        });
         setChats(chatsData);
     });
 

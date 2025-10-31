@@ -24,6 +24,8 @@ import {
   Smile,
   Mic,
   StopCircle,
+  Paperclip,
+  FileIcon,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -45,6 +47,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
+import { Progress } from '../ui/progress';
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
@@ -106,6 +109,33 @@ function MessageBubble({
     : '';
 
   const renderContent = () => {
+    if (message.type === 'image' && message.imageURL) {
+        return (
+            <Image 
+                src={message.imageURL} 
+                alt="Shared image"
+                width={300}
+                height={300}
+                className="rounded-md object-cover"
+            />
+        );
+    }
+    if (message.type === 'file' && message.fileURL) {
+        return (
+            <a 
+                href={message.fileURL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className='flex items-center gap-3 bg-muted/50 p-3 rounded-md hover:bg-muted'
+            >
+                <FileIcon className="h-8 w-8 text-muted-foreground" />
+                <div className='flex-1'>
+                    <p className="text-sm font-medium break-all">{message.fileName}</p>
+                    <p className='text-xs text-muted-foreground'>{message.fileSize ? `${(message.fileSize / 1024).toFixed(2)} KB` : ''}</p>
+                </div>
+            </a>
+        );
+    }
     if (message.type === 'audio' && message.audioURL) {
       return (
         <audio controls src={message.audioURL} className="w-64" />
@@ -115,6 +145,7 @@ function MessageBubble({
   };
 
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
+  const bubblePadding = message.type === 'image' ? 'p-1' : 'p-2.5';
 
   return (
     <div
@@ -131,10 +162,11 @@ function MessageBubble({
        )}
       <div
         className={cn(
-          'max-w-md rounded-lg p-2.5 flex flex-col',
+          'max-w-md rounded-lg flex flex-col',
           isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card',
           chat.isGroup && !isOwnMessage ? 'rounded-tl-none' : '',
           chat.isGroup && isOwnMessage ? 'rounded-tr-none' : '',
+          bubblePadding,
         )}
       >
         <div className="relative">
@@ -157,7 +189,8 @@ function MessageBubble({
           className={cn(
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
-            hasReactions ? 'pt-2' : ''
+            hasReactions ? 'pt-2' : '',
+            message.type !== 'image' && 'px-2.5 pb-2.5'
           )}
         >
           <span>
@@ -224,12 +257,14 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [otherUser, setOtherUser] = useState<User | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [uploading, setUploading] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -328,14 +363,21 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
     }
   }, [messages, selectedChat]);
   
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text'> & { timestamp: any, text?: string, audioURL?: string }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string }) => {
     if (!chatId) return;
     
     const messagesRef = collection(db, 'chats', chatId, 'messages');
     const docRef = await addDoc(messagesRef, messageData);
     
     const chatRef = doc(db, 'chats', chatId);
-    const lastMessageText = messageData.type === 'audio' ? 'Audio message' : messageData.text;
+    
+    let lastMessageText = '';
+    switch (messageData.type) {
+        case 'audio': lastMessageText = 'Audio message'; break;
+        case 'image': lastMessageText = 'Image'; break;
+        case 'file': lastMessageText = messageData.fileName || 'File'; break;
+        default: lastMessageText = messageData.text || '';
+    }
 
     const updatePayload: any = {
         lastMessage: {
@@ -399,7 +441,9 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
             
+            setUploading(true);
             const audioURL = await uploadFile(audioFile);
+            setUploading(false);
             
             if (!chatData) return;
 
@@ -420,6 +464,34 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
       }
     }
   };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !chatData) return;
+    
+    setUploading(true);
+    const fileURL = await uploadFile(file);
+    setUploading(false);
+    
+    const messageData = {
+        type: file.type.startsWith('image/') ? 'image' as const : 'file' as const,
+        senderId: currentUser.uid,
+        timestamp: serverTimestamp(),
+        readBy: [currentUser.uid],
+        deletedFor: [],
+        ...(file.type.startsWith('image/')
+            ? { imageURL: fileURL }
+            : { fileURL, fileName: file.name, fileSize: file.size }
+        )
+    };
+    
+    await addMessageToChat(messageData);
+
+    if(fileInputRef.current) {
+        fileInputRef.current.value = '';
+    }
+  };
+
 
   const handleDeleteForMe = async (messageId: string) => {
     if (!chatId) return;
@@ -569,6 +641,7 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
             </div>
           </ScrollArea>
           <div className="border-t p-4 bg-background z-10">
+            {uploading && <Progress value={undefined} className="mb-2 h-1" />}
             {isRecording ? (
                 <div className="flex items-center gap-2">
                     <Button onClick={handleToggleRecording} size="icon" variant="destructive">
@@ -584,22 +657,34 @@ export default function ChatView({ currentUser, selectedChat }: ChatViewProps) {
                     className="flex items-center gap-2"
                 >
                     <Input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading}>
+                        <Paperclip className="h-5 w-5" />
+                    </Button>
+
+                    <Input
                         value={newMessage}
                         onChange={(e) => {
                             setNewMessage(e.target.value);
                         }}
                         placeholder={'Type a message...'}
                         autoComplete="off"
+                        disabled={uploading}
                     />
                     {newMessage.trim() ? (
                         <Button
                             type="submit"
                             size="icon"
+                            disabled={uploading}
                         >
                             <Send className="h-5 w-5" />
                         </Button>
                     ) : (
-                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost">
+                        <Button type="button" onClick={handleToggleRecording} size="icon" variant="ghost" disabled={uploading}>
                             <Mic className="h-5 w-5" />
                         </Button>
                     )}

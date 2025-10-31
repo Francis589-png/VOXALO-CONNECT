@@ -23,8 +23,12 @@ export interface Message {
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
-  type: 'text' | 'audio';
+  type: 'text' | 'audio' | 'image' | 'file';
   audioURL?: string;
+  imageURL?: string;
+  fileURL?: string;
+  fileName?: string;
+  fileSize?: number;
 }
 
 export interface Chat {
