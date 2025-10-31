@@ -91,6 +91,35 @@
     animation: animated-background 15s ease infinite;
   }
 
+  @keyframes splash-in {
+    0% {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .animate-splash-in {
+    animation: splash-in 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+
+  .animate-splash-in > div:nth-child(1) {
+    animation-delay: 0s;
+  }
+  .animate-splash-in > div:nth-child(2) > h1 {
+    opacity: 0;
+    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.2s forwards;
+  }
+  .animate-splash-in > div:nth-child(2) > p {
+    opacity: 0;
+    animation: splash-in 1s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s forwards;
+  }
+
 }
 
 @layer components {
