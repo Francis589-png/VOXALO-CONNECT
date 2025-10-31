@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useFriends } from '../providers/friends-provider';
@@ -72,7 +73,7 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
             >
             <div className="relative">
                 <Avatar className="h-10 w-10">
-                    <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
+                    <AvatarImage src={getChatPhoto() || undefined} alt={getChatName()!} />
                     <AvatarFallback>
                         {chat.isGroup ? <Users className="h-5 w-5" /> : getChatName()?.[0]}
                     </AvatarFallback>

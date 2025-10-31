@@ -106,7 +106,7 @@ function AddMembersDialog({
                 >
                   <Avatar className="h-9 w-9 mr-3">
                     <AvatarImage
-                      src={friend.photoURL!}
+                      src={friend.photoURL || undefined}
                       alt={friend.displayName!}
                     />
                     <AvatarFallback>{friend.displayName?.[0]}</AvatarFallback>
@@ -290,7 +290,7 @@ export default function GroupInfoSheet() {
                 <div key={member.uid} className="flex items-center p-2 rounded-md group">
                   <Avatar className="h-9 w-9 mr-3">
                     <AvatarImage
-                      src={member.photoURL!}
+                      src={member.photoURL || undefined}
                       alt={member.displayName!}
                     />
                     <AvatarFallback>{member.displayName?.[0]}</AvatarFallback>

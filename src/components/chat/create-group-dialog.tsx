@@ -123,7 +123,7 @@ export default function CreateGroupDialog({ children, currentUser, onGroupCreate
              <Label htmlFor="group-photo-upload" className='cursor-pointer'>
                 <Avatar className="h-16 w-16">
                     {photoPreview ? (
-                        <AvatarImage src={photoPreview} />
+                        <AvatarImage src={photoPreview || undefined} />
                     ): (
                         <AvatarFallback><UserPlus className="h-8 w-8" /></AvatarFallback>
                     )}
@@ -149,7 +149,7 @@ export default function CreateGroupDialog({ children, currentUser, onGroupCreate
                     onClick={() => handleUserSelect(friend)}
                 >
                     <Avatar className="h-9 w-9 mr-3">
-                        <AvatarImage src={friend.photoURL!} alt={friend.displayName!} />
+                        <AvatarImage src={friend.photoURL || undefined} alt={friend.displayName!} />
                         <AvatarFallback>{friend.displayName?.[0]}</AvatarFallback>
                     </Avatar>
                     <span className="flex-1 font-medium">{friend.displayName}</span>

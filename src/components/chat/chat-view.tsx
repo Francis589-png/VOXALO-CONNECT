@@ -745,7 +745,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
             <Avatar className="h-10 w-10">
                 <AvatarImage
-                    src={getChatPhoto()!}
+                    src={getChatPhoto() || undefined}
                     alt={getChatName()!}
                 />
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
@@ -887,7 +887,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
           <div className="text-center p-4">
              <Avatar className="h-24 w-24 mx-auto mb-4">
-                <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
+                <AvatarImage src={getChatPhoto() || undefined} alt={getChatName()!} />
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>
             <h3 className="text-xl font-semibold">{getChatName()}</h3>

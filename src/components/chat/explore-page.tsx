@@ -1,3 +1,4 @@
+
 'use client';
 import { useFriends } from '../providers/friends-provider';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -55,7 +56,7 @@ export default function ExplorePage({ search }: ExplorePageProps) {
               <div key={req.id} className="flex items-center gap-3 py-2">
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={req.sender?.photoURL!}
+                    src={req.sender?.photoURL || undefined}
                     alt={req.sender?.displayName!}
                   />
                   <AvatarFallback>
@@ -95,7 +96,7 @@ export default function ExplorePage({ search }: ExplorePageProps) {
               <div key={user.uid} className="flex items-center gap-3 py-2">
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={user.photoURL!}
+                    src={user.photoURL || undefined}
                     alt={user.displayName!}
                   />
                   <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
@@ -124,7 +125,7 @@ export default function ExplorePage({ search }: ExplorePageProps) {
               <div key={req.id} className="flex items-center gap-3 py-2">
                 <Avatar className="h-10 w-10">
                   <AvatarImage
-                    src={req.receiver?.photoURL!}
+                    src={req.receiver?.photoURL || undefined}
                     alt={req.receiver?.displayName!}
                   />
                   <AvatarFallback>

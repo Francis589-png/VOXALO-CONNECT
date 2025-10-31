@@ -86,7 +86,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 w-10 rounded-full">
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={currentUser.photoURL!} alt={currentUser.displayName!} />
+                  <AvatarImage src={currentUser.photoURL || undefined} alt={currentUser.displayName!} />
                   <AvatarFallback>{currentUser.displayName?.[0]}</AvatarFallback>
                 </Avatar>
               </Button>
