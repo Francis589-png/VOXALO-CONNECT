@@ -19,7 +19,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
 import type { User } from '@/types';
@@ -140,15 +140,21 @@ export default function GroupInfoSheet() {
   const { toast } = useToast();
 
   const [isEditingName, setIsEditingName] = useState(false);
-  const [groupName, setGroupName] = useState(group?.name || '');
+  const [groupName, setGroupName] = useState('');
   const [groupPhoto, setGroupPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(
-    group?.photoURL || null
-  );
+  const [photoPreview, setPhotoPreview] = useState<string | null>('');
 
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const isCreator = currentUser?.uid === group?.createdBy;
+
+  useEffect(() => {
+    if (group) {
+        setGroupName(group.name || '');
+        setPhotoPreview(group.photoURL || null);
+    }
+  }, [group]);
+
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,7 +215,7 @@ export default function GroupInfoSheet() {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetContent className="flex flex-col">
+      <SheetContent className="flex flex-col bg-background/95 backdrop-blur-lg">
         <SheetHeader>
           <SheetTitle>Group Info</SheetTitle>
         </SheetHeader>
@@ -217,7 +223,7 @@ export default function GroupInfoSheet() {
           <div className="relative group">
             <Avatar className="h-32 w-32 border-4 border-muted">
               <AvatarImage
-                src={photoPreview || group.photoURL}
+                src={photoPreview || undefined}
                 alt={group.name}
               />
               <AvatarFallback>{group.name?.[0]}</AvatarFallback>

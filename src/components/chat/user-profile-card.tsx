@@ -3,23 +3,18 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet';
-import { useFriends } from '@/components/providers/friends-provider';
-import type { User } from '@/types';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { Check, UserPlus, X } from 'lucide-react';
-import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../ui/dialog';
+} from '@/components/ui/dialog';
+import { useFriends } from '@/components/providers/friends-provider';
+import type { User } from '@/types';
+import { Check, UserPlus } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
+import { useIsMobile } from '@/hooks/use-mobile';
+
 
 interface UserProfileCardProps {
   user: User | null;
@@ -60,19 +55,18 @@ function ProfileContent({ user }: { user: User }) {
   };
 
   return (
-    <>
-      <SheetHeader className="text-center items-center">
+    <div className='flex flex-col items-center text-center'>
         <Avatar className="h-24 w-24 mb-2">
           <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
           <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
         </Avatar>
-        <SheetTitle>{user.displayName}</SheetTitle>
-      </SheetHeader>
+        <DialogTitle>{user.displayName}</DialogTitle>
+      
       <div className="py-4 text-center">
         <p className="text-sm text-muted-foreground">{user.bio || 'No bio yet.'}</p>
       </div>
       <div className="flex justify-center">{renderFriendshipAction()}</div>
-    </>
+    </div>
   );
 }
 
@@ -83,27 +77,34 @@ export default function UserProfileCard({
   onOpenChange,
 }: UserProfileCardProps) {
   const isMobile = useIsMobile();
-
+  
   if (!user) {
     return children || null;
   }
 
+  const commonProps = {
+    open,
+    onOpenChange,
+  };
+  
+  const content = <ProfileContent user={user} />;
+
   if (isMobile) {
     return (
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet {...commonProps}>
         {children && <SheetTrigger asChild>{children}</SheetTrigger>}
-        <SheetContent side="bottom" className="rounded-t-lg">
-          <ProfileContent user={user} />
+        <SheetContent side="bottom" className="rounded-t-lg p-6">
+          {content}
         </SheetContent>
       </Sheet>
     );
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog {...commonProps}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[425px]">
-        <ProfileContent user={user} />
+      <DialogContent className="sm:max-w-xs p-8">
+        {content}
       </DialogContent>
     </Dialog>
   );

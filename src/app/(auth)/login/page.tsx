@@ -57,7 +57,7 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm glass-card">
       <CardHeader className="text-center">
         <div className="mb-4 flex justify-center">
             <Icons.logo className="h-10 w-10 text-primary" />

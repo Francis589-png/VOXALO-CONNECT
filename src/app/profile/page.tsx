@@ -138,8 +138,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="flex min-h-screen w-full items-center justify-center p-4 bg-muted/40">
-        <Card className="w-full max-w-lg relative">
+    <main className="flex min-h-screen w-full items-center justify-center p-4 chat-background">
+        <Card className="w-full max-w-lg relative glass-card">
             <CardHeader>
                 <div className="absolute top-4 left-4">
                 <Button variant="ghost" size="icon" asChild>

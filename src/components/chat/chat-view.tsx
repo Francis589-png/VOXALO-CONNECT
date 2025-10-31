@@ -197,7 +197,7 @@ function MessageBubble({
                 <Input
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="bg-card text-card-foreground"
+                    className="bg-background/80"
                     autoFocus
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
@@ -262,7 +262,7 @@ function MessageBubble({
     >
        {(!isOwnMessage && chat.isGroup) && (
         <UserProfileCard user={sender}>
-            <Avatar className="h-8 w-8 cursor-pointer shadow-lg-3d rounded-full">
+            <Avatar className="h-8 w-8 cursor-pointer">
                 <AvatarImage src={sender?.photoURL || undefined} alt={sender?.displayName || ''} />
                 <AvatarFallback>{sender?.displayName?.[0]}</AvatarFallback>
             </Avatar>
@@ -271,7 +271,7 @@ function MessageBubble({
       <div
         className={cn(
           'max-w-md rounded-lg flex flex-col',
-          isOwnMessage ? 'bg-primary text-primary-foreground shadow-md-3d' : 'bg-card shadow-md-3d',
+          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-card',
           chat.isGroup && !isOwnMessage ? 'rounded-tl-none' : '',
           chat.isGroup && isOwnMessage ? 'rounded-tr-none' : '',
           bubblePadding,
@@ -709,7 +709,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
   if (!selectedChat) {
     return (
-      <div className="flex h-full flex-col items-center justify-center bg-background">
+      <div className="flex h-full flex-col items-center justify-center bg-background chat-background">
         <div className="text-center">
           <MessageCircleIcon className="mx-auto h-16 w-16 text-muted-foreground" />
           <h2 className="mt-2 text-2xl font-semibold">VoxaLo Connect</h2>
@@ -739,7 +739,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             </Button>
         )}
         <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
-            <Avatar className="h-10 w-10 shadow-lg-3d rounded-full">
+            <Avatar className="h-10 w-10">
                 <AvatarImage
                     src={getChatPhoto()!}
                     alt={getChatName()!}
@@ -757,7 +757,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search messages..."
-                    className="h-9"
+                    className="h-9 bg-background/80"
                  />
             ) : (
                 <>
@@ -859,6 +859,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     placeholder={'Type a message...'}
                     autoComplete="off"
                     disabled={uploading}
+                    className="bg-background/80"
                 />
                 <Button
                     type="submit"
@@ -873,7 +874,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
       ) : (
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
           <div className="text-center p-4">
-             <Avatar className="h-24 w-24 mx-auto mb-4 shadow-lg-3d rounded-full">
+             <Avatar className="h-24 w-24 mx-auto mb-4">
                 <AvatarImage src={getChatPhoto()!} alt={getChatName()!} />
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>

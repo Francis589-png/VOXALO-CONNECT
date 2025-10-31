@@ -74,7 +74,7 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
   return (
     <div className="flex h-screen w-full">
       <div className={cn(
-          "flex h-full max-h-screen w-full flex-col md:w-80 md:border-r",
+          "flex h-full max-h-screen w-full flex-col md:w-80 md:border-r md:bg-background/80 md:backdrop-blur-xl",
           isMobile && selectedChat && "hidden"
       )}>
         <div className="flex items-center justify-between border-b p-4">
@@ -116,20 +116,22 @@ export default function ChatLayout({ currentUser }: ChatLayoutProps) {
         </div>
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
-          <TabsList className="m-4">
-            <TabsTrigger value="contacts" className="w-full">
-              Contacts
-            </TabsTrigger>
-            <TabsTrigger value="explore" className="w-full">
-              Explore
-            </TabsTrigger>
-          </TabsList>
+          <div className='p-4'>
+            <TabsList className="w-full">
+              <TabsTrigger value="contacts" className="w-full">
+                Contacts
+              </TabsTrigger>
+              <TabsTrigger value="explore" className="w-full">
+                Explore
+              </TabsTrigger>
+            </TabsList>
+          </div>
           <div className="p-4 pt-0">
             <div className="relative">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search..."
-                className="pl-9"
+                className="pl-9 bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
