@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -80,6 +81,11 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
       const friendshipsData = await Promise.all(snapshot.docs.map(async (friendshipDoc) => {
         const data = friendshipDoc.data();
         const friendId = data.users.find((id: string) => id !== user.uid);
+        
+        if (!friendId) {
+            return null;
+        }
+
         const userDoc = await getDoc(doc(db, 'users', friendId));
         const friend = userDoc.data() as User;
         
@@ -89,7 +95,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
           friend,
         } as Friendship;
       }));
-      setFriendships(friendshipsData.filter(f => f.friend));
+      setFriendships(friendshipsData.filter(f => f && f.friend) as Friendship[]);
     });
 
     return () => {
