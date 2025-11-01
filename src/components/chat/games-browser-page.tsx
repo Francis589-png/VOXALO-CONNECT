@@ -11,12 +11,13 @@ import Link from 'next/link';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-type GameSource = 'freetogame' | 'gamemonetize';
+type GameSource = 'freetogame' | 'gamemonetize' | 'crazygames';
 
 async function getGames(source: GameSource): Promise<any[]> {
+    if (source === 'crazygames') return [];
     try {
         const response = await fetch(`/api/${source === 'freetogame' ? 'games' : 'gamemonetize'}`);
         if (!response.ok) {
@@ -105,6 +106,12 @@ export default function GamesBrowserPage() {
     const [source, setSource] = useState<GameSource>('freetogame');
 
     useEffect(() => {
+        if (source === 'crazygames') {
+            setLoading(false);
+            setError(null);
+            setGames([]);
+            return;
+        };
         const fetchGames = async () => {
             setLoading(true);
             setError(null);
@@ -140,6 +147,23 @@ export default function GamesBrowserPage() {
             )
         }
         
+        if (source === 'crazygames') {
+            return (
+                <div className="p-4 col-span-full text-center">
+                    <h3 className="text-lg font-semibold">CrazyGames</h3>
+                    <p className="text-muted-foreground mb-4">
+                        Explore thousands of free games directly on the CrazyGames website.
+                    </p>
+                    <Button asChild>
+                        <a href="https://www.crazygames.com" target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="mr-2 h-4 w-4" />
+                            Visit CrazyGames.com
+                        </a>
+                    </Button>
+                </div>
+            );
+        }
+
         const validGames = games.filter(game => {
             const g = game as any;
             const thumbnailUrl = source === 'freetogame' ? g.thumbnail : g.thumb;
@@ -175,6 +199,7 @@ export default function GamesBrowserPage() {
                     <SelectContent>
                         <SelectItem value="freetogame">FreeToGame</SelectItem>
                         <SelectItem value="gamemonetize">GameMonetize</SelectItem>
+                        <SelectItem value="crazygames">CrazyGames</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
@@ -186,5 +211,3 @@ export default function GamesBrowserPage() {
         </div>
     );
 }
-
-    
