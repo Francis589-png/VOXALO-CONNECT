@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import type { JttNewsPost } from '@/types';
@@ -50,20 +50,24 @@ function CreatePostForm() {
         setIsLoading(true);
 
         try {
-            let imageURL: string | undefined = undefined;
-            if (image) {
-                imageURL = await uploadFile(image);
-            }
-
-            await addDoc(collection(db, 'jtt-news'), {
+            const postData: DocumentData = {
                 authorId: user.uid,
                 authorName: user.displayName,
                 authorPhotoURL: user.photoURL,
                 text,
-                link: link.trim() || undefined,
-                imageURL,
                 createdAt: serverTimestamp(),
-            });
+            };
+
+            if (link.trim()) {
+                postData.link = link.trim();
+            }
+            
+            if (image) {
+                const imageURL = await uploadFile(image);
+                postData.imageURL = imageURL;
+            }
+
+            await addDoc(collection(db, 'jtt-news'), postData);
 
             setText('');
             setLink('');
@@ -100,7 +104,7 @@ function CreatePostForm() {
                     />
                     {imagePreview && (
                          <div className="relative w-full aspect-video rounded-md overflow-hidden">
-                            <Image src={imagePreview} alt="Image preview" layout="fill" objectFit="cover" />
+                            <Image src={imagePreview} alt="Image preview" fill objectFit="cover" />
                         </div>
                     )}
                     <div className='flex items-center gap-4'>
@@ -141,7 +145,7 @@ function PostCard({ post, canDelete }: { post: JttNewsPost; canDelete: boolean }
         <Card className="overflow-hidden">
             {post.imageURL && (
                 <div className="relative w-full aspect-video">
-                    <Image src={post.imageURL} alt="Post image" layout="fill" objectFit="cover" />
+                    <Image src={post.imageURL} alt="Post image" fill objectFit="cover" />
                 </div>
             )}
             <CardHeader className="flex flex-row items-center gap-3">
