@@ -16,7 +16,7 @@ import { Check, UserPlus, Ban } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/use-auth';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -30,6 +30,7 @@ import {
     AlertDialogTitle as AlertDialogTitleComponent,
     AlertDialogTrigger,
   } from '@/components/ui/alert-dialog';
+import { useEffect, useState } from 'react';
 
 
 interface UserProfileCardProps {
@@ -42,12 +43,23 @@ interface UserProfileCardProps {
 function ProfileContent({ user }: { user: User }) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
-  const { getFriendshipStatus, sendFriendRequest, incomingRequests, acceptFriendRequest, declineFriendRequest, friendships } = useFriends();
+  const { getFriendshipStatus, sendFriendRequest, incomingRequests, acceptFriendRequest, declineFriendRequest } = useFriends();
+  const [currentUserData, setCurrentUserData] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (!currentUser?.uid) return;
+    const userDocRef = doc(db, 'users', currentUser.uid);
+    const unsubscribe = onSnapshot(userDocRef, (doc) => {
+        if (doc.exists()) {
+            setCurrentUserData(doc.data() as User);
+        }
+    });
+    return () => unsubscribe();
+  }, [currentUser?.uid]);
   
   if (!user || !currentUser) return null;
   
-  const friendship = friendships.find(f => f.friend.uid === user.uid);
-  const isBlocked = friendships.find(f => f.friend.uid === currentUser.uid)?.blockedUsers?.includes(user.uid);
+  const isBlocked = currentUserData?.blockedUsers?.includes(user.uid);
   
   const status = getFriendshipStatus(user.uid);
   const incomingRequest = incomingRequests.find(req => req.senderId === user.uid);
