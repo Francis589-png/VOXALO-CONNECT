@@ -6,7 +6,7 @@ import { useRef, useState } from 'react';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '../ui/textarea';
-import { submitFeedback } from '@/ai/flows/feedback-flow';
+import { submitFeedback } from '@/lib/actions/feedback-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 
