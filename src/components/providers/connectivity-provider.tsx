@@ -16,8 +16,10 @@ export function ConnectivityProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   useEffect(() => {
+    // The Realtime Database is a good proxy for overall Firebase connectivity.
     const rtdb = getDatabase(app);
     const connectedRef = ref(rtdb, '.info/connected');
+    
     const unsubscribe = onValue(connectedRef, (snap) => {
       const connected = snap.val() === true;
       setIsOnline(connected);
