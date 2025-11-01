@@ -1,7 +1,7 @@
 
 'use server';
 
-import { db, auth as adminAuth } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
@@ -12,7 +12,7 @@ export async function setUserVerification(uid: string, isVerified: boolean) {
 }
 
 export async function banUser(uid: string, isBanned: boolean) {
-    await adminAuth.updateUser(uid, { disabled: isBanned });
+    // This now only updates Firestore. The Cloud Function will handle disabling the auth user.
     const userRef = doc(db, 'users', uid);
     await updateDoc(userRef, { isBanned });
     revalidatePath('/jtt-news');
