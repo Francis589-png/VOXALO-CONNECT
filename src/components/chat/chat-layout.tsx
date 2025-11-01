@@ -236,3 +236,5 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
     </div>
   );
 }
+
+    
