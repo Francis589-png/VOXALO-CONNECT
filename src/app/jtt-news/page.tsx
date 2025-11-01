@@ -109,7 +109,7 @@ function CreatePostForm() {
                     />
                     {imagePreview && (
                          <div className="relative w-full aspect-video rounded-md overflow-hidden">
-                            <Image src={imagePreview} alt="Image preview" fill objectFit="cover" />
+                            <Image src={imagePreview} alt="Image preview" fill className="object-cover" />
                              <Button
                                 type="button"
                                 variant="destructive"
@@ -163,7 +163,7 @@ function PostCard({ post, canDelete }: { post: JttNewsPost; canDelete: boolean }
         <Card className="overflow-hidden">
             {post.imageURL && (
                 <div className="relative w-full aspect-video">
-                    <Image src={post.imageURL} alt="Post image" fill objectFit="cover" />
+                    <Image src={post.imageURL} alt="Post image" fill className="object-cover" />
                 </div>
             )}
             <CardHeader className="flex flex-row items-center gap-3">
