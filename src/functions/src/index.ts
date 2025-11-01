@@ -37,29 +37,26 @@ exports.sendChatNotification = functions.firestore
         messageText = 'Sent a file';
     }
 
-    const tokens: string[] = [];
     for (const userId of recipientIds) {
       const userDoc = await admin.firestore().collection('users').doc(userId).get();
       const userData = userDoc.data();
       if (userData && userData.fcmToken) {
-        
-        // This is the main change: Send ONLY a data payload.
-        // This ensures the message is always passed to the app's onMessage handler.
+        // This is a data-only payload. This ensures the message is always
+        // passed to the app's onMessage handler (foreground) or the
+        // service worker's onBackgroundMessage handler (background).
         const payload = {
           data: {
             title: `New message from ${senderData.displayName}`,
             body: messageText,
-            icon: senderData.photoURL || '',
+            icon: senderData.photoURL || '/favicon.ico',
             chatId: chatId,
           }
         };
 
         try {
           await admin.messaging().sendToDevice(userData.fcmToken, payload);
-          tokens.push(userData.fcmToken);
         } catch (error) {
             console.error(`Failed to send notification to user ${userId}`, error);
-            // If a token is invalid, we could remove it from the user's document here.
             if ((error as any).code === 'messaging/registration-token-not-registered') {
               await admin.firestore().collection('users').doc(userId).update({ fcmToken: null });
             }
