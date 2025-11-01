@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { useFriends } from '@/components/providers/friends-provider';
 import type { User } from '@/types';
@@ -24,7 +26,7 @@ import {
     AlertDialogDescription,
     AlertDialogFooter,
     AlertDialogHeader,
-    AlertDialogTitle,
+    AlertDialogTitle as AlertDialogTitleComponent,
     AlertDialogTrigger,
   } from '@/components/ui/alert-dialog';
 
@@ -79,7 +81,7 @@ function ProfileContent({ user }: { user: User }) {
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Block {user.displayName}?</AlertDialogTitle>
+                    <AlertDialogTitleComponent>Block {user.displayName}?</AlertDialogTitleComponent>
                     <AlertDialogDescription>
                         Blocked users will not be able to send you messages or friend requests. They will not be notified that you have blocked them.
                     </AlertDialogDescription>
@@ -161,6 +163,9 @@ export default function UserProfileCard({
     <Dialog {...commonProps}>
       {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="sm:max-w-xs p-8">
+        <DialogHeader className='sr-only'>
+            <DialogTitle>{user.displayName}'s Profile</DialogTitle>
+        </DialogHeader>
         {content}
       </DialogContent>
     </Dialog>
