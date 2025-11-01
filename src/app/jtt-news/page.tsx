@@ -257,7 +257,8 @@ function UserManagementPanel() {
     useEffect(() => {
         const q = query(collection(db, 'users'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const usersData = snapshot.docs.map(d => ({ ...d.data(), uid: d.id }) as User).filter(u => u.uid !== currentUser?.uid);
+            const usersData = snapshot.docs.map(d => ({ ...d.data(), uid: d.id }) as User)
+                .filter(u => u.uid !== currentUser?.uid || u.email === OFFICIAL_EMAIL);
             setAllUsers(usersData);
         });
         return () => unsubscribe();
@@ -561,5 +562,7 @@ export default function JttNewsPage() {
         </div>
     );
 }
+
+    
 
     
