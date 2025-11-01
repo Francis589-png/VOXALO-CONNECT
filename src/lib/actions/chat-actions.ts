@@ -3,17 +3,41 @@
 
 import { db } from '@/lib/firebase';
 import type { Message } from '@/types';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, updateDoc, Timestamp } from 'firebase/firestore';
+
+// A helper function to convert date strings back to Timestamps
+function reviveTimestamps(obj: any): any {
+  if (obj === null || obj === undefined || typeof obj !== 'object') {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(reviveTimestamps);
+  }
+
+  const newObj: { [key: string]: any } = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      const value = obj[key];
+      if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/.test(value)) {
+        newObj[key] = Timestamp.fromDate(new Date(value));
+      } else {
+        newObj[key] = reviveTimestamps(value);
+      }
+    }
+  }
+
+  return newObj;
+}
+
 
 export async function pinMessage(chatId: string, message: Message) {
   const chatRef = doc(db, 'chats', chatId);
-
-  // The 'message' object is not a plain object because of the Firestore Timestamp.
-  // We can spread it into a new object to make it serializable for Firestore.
-  const plainMessageObject = { ...message };
+  
+  const revivedMessage = reviveTimestamps(message);
 
   await updateDoc(chatRef, {
-    pinnedMessage: plainMessageObject,
+    pinnedMessage: revivedMessage,
     lastMessage: {
         text: `Pinned a message`,
         senderId: message.senderId,

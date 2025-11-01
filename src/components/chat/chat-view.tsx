@@ -46,7 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
 import type { Message, User as AppUser, Chat } from '@/types';
-import { cn, getMessagePreview } from '@/lib/utils';
+import { cn, getMessagePreview, makeSerializable } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
 import {
@@ -691,9 +691,11 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const handlePinMessage = async (message: Message) => {
     if (!chatId) return;
     try {
-        await pinMessage(chatId, message);
+        const serializableMessage = makeSerializable(message);
+        await pinMessage(chatId, serializableMessage as Message);
         toast({ title: 'Message Pinned' });
-    } catch (e) {
+    } catch (e: any) {
+        console.error(e);
         toast({ title: 'Error', description: 'Failed to pin message.', variant: 'destructive' });
     }
   }
