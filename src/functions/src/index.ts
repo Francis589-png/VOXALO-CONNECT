@@ -1,4 +1,3 @@
-
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
@@ -44,14 +43,19 @@ exports.sendChatNotification = functions.firestore
       const userData = userDoc.data();
       if (userData && userData.fcmToken) {
         
-        // This is the main change: Send ONLY a data payload.
-        // This ensures the message is always passed to the app's onMessage handler.
+        // This is the main change: Send BOTH a notification and data payload.
+        // The `notification` payload is used for background notifications.
+        // The `data` payload is used for foreground notifications.
         const payload = {
-          data: {
+          notification: {
             title: `New message from ${senderData.displayName}`,
             body: messageText,
             icon: senderData.photoURL || '',
+          },
+          data: {
             chatId: chatId,
+            // Construct a URL to open when the notification is clicked
+            url: `/?chatId=${chatId}`
           }
         };
 

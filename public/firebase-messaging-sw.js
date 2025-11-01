@@ -1,8 +1,9 @@
-// Scripts for firebase and firebase messaging
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
-// Initialize the Firebase app in the service worker by passing in the messagingSenderId.
+// Import and initialize the Firebase SDK
+import { initializeApp } from "firebase/app";
+import { getMessaging } from "firebase/messaging/sw";
+
+// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyD5A3eoJms-tQIttDDHZKIsUTp2elSL3BY",
   authDomain: "voxalo-x.firebaseapp.com",
@@ -13,20 +14,44 @@ const firebaseConfig = {
   databaseURL: "https://voxalo-x-default-rtdb.firebaseio.com"
 };
 
-firebase.initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig);
+const messaging = getMessaging(app);
 
-// Retrieve an instance of Firebase Messaging so that it can handle background messages.
-const messaging = firebase.messaging();
-
-messaging.onBackgroundMessage((payload) => {
-  console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
+// This is the background message handler.
+// It's called when the app is in the background or closed and a message is received.
+self.addEventListener('push', (event) => {
+  const payload = event.data.json();
   const notificationTitle = payload.notification.title;
   const notificationOptions = {
     body: payload.notification.body,
-    icon: payload.notification.icon || '/favicon.ico',
-    click_action: payload.notification.click_action,
+    icon: payload.notification.icon,
+    data: {
+        url: payload.data.url // Pass the URL to the click handler
+    }
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  event.waitUntil(self.registration.showNotification(notificationTitle, notificationOptions));
+});
+
+// This handles the click event on the notification.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = event.notification.data.url;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if there is already a window/tab open with the target URL
+      for (var i = 0; i < windowClients.length; i++) {
+        var client = windowClients[i];
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If not, open a new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
 });

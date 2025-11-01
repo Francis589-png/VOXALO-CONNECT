@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onMessage, type MessagePayload } from 'firebase/messaging';
-import { messaging } from '@/lib/firebase-messaging';
+import { messaging, requestNotificationPermission } from '@/lib/firebase-messaging';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -20,6 +20,8 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
 
   useEffect(() => {
     if (user?.uid) {
+        requestNotificationPermission(user.uid);
+
         const userDocRef = doc(db, 'users', user.uid);
         const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
@@ -35,8 +37,12 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
         
         const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
             console.log('Foreground message received.', payload);
-            if (payload && payload.data) {
-                const { title, body, chatId } = payload.data;
+
+            // The payload for foreground messages is in `notification`.
+            // The `data` payload is also available.
+            if (payload && payload.notification) {
+                const { title, body } = payload.notification;
+                const chatId = payload.data?.chatId;
                 const currentChatId = searchParams.get('chatId');
 
                 // Don't show notification if user is already in the chat and window is focused
