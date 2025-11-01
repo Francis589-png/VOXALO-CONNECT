@@ -160,3 +160,12 @@ export interface CheckersGame {
     gameOver: boolean;
     lastMove?: { from: [number, number], to: [number, number] };
 }
+
+// --- Feedback Type ---
+export interface Feedback {
+    id: string;
+    originalFeedback: string;
+    createdAt: Timestamp;
+}
+
+    

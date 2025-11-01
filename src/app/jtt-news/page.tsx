@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
-import type { JttNewsPost } from '@/types';
+import type { JttNewsPost, Feedback } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -15,8 +15,9 @@ import { formatRelative } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { uploadFile } from '@/lib/pinata';
-import { AlertTriangle, ExternalLink, ImagePlus, Loader2, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ImagePlus, Loader2, MessageSquareQuote, Send, Trash2 } from 'lucide-react';
 import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
 
 const ADMIN_EMAIL = 'jusufrancis08@gmail.com';
 
@@ -199,9 +200,44 @@ function PostCard({ post, canDelete }: { post: JttNewsPost; canDelete: boolean }
     );
 }
 
+function FeedbackCard({ feedback }: { feedback: Feedback }) {
+    const { toast } = useToast();
+    const handleDelete = async () => {
+        if (!window.confirm('Are you sure you want to delete this feedback?')) return;
+        try {
+            await deleteDoc(doc(db, 'feedback', feedback.id));
+            toast({ title: 'Feedback deleted' });
+        } catch (error) {
+            toast({ title: 'Error deleting feedback', variant: 'destructive' });
+        }
+    };
+
+    return (
+        <Card className="overflow-hidden">
+            <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="text-lg">User Feedback</CardTitle>
+                        <p className="text-xs text-muted-foreground">
+                            {feedback.createdAt ? formatRelative(feedback.createdAt.toDate(), new Date()) : '...'}
+                        </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={handleDelete}>
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent>
+                <p className="whitespace-pre-wrap">{feedback.originalFeedback}</p>
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function JttNewsPage() {
     const { user } = useAuth();
     const [posts, setPosts] = useState<JttNewsPost[]>([]);
+    const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -217,6 +253,19 @@ export default function JttNewsPage() {
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        if (user?.email !== ADMIN_EMAIL) return;
+
+        const q = query(collection(db, 'feedback'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const feedbacksData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Feedback));
+            setFeedbacks(feedbacksData);
+        }, (error) => {
+            console.error("Error fetching feedback:", error);
+        });
+        return () => unsubscribe();
+    }, [user]);
+
     return (
         <div className="h-full w-full bg-background chat-background">
             <ScrollArea className="h-full">
@@ -230,6 +279,21 @@ export default function JttNewsPage() {
                     </div>
                     
                     {user && <CreatePostForm />}
+
+                    {user?.email === ADMIN_EMAIL && feedbacks.length > 0 && (
+                        <div className="mb-8">
+                            <div className="flex items-center gap-2 mb-4">
+                               <MessageSquareQuote className="h-6 w-6 text-primary" />
+                               <h2 className="text-2xl font-bold">User Feedback</h2>
+                            </div>
+                            <div className="grid gap-6">
+                                {feedbacks.map(feedback => (
+                                    <FeedbackCard key={feedback.id} feedback={feedback} />
+                                ))}
+                            </div>
+                            <Separator className="my-8" />
+                        </div>
+                    )}
                     
                     {isLoading && (
                         <div className="flex justify-center items-center h-64">
@@ -255,3 +319,5 @@ export default function JttNewsPage() {
         </div>
     );
 }
+
+    
