@@ -498,7 +498,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
+            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/mp4' });
             mediaRecorderRef.current.start();
             setIsRecording(true);
 
@@ -523,11 +523,11 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const handleSendAudio = async () => {
       if (audioChunksRef.current.length === 0) return;
       
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp4' });
       audioChunksRef.current = []; // Clear chunks for next recording
       
       setUploading(true);
-      const audioFile = new File([audioBlob], `voice-message-${Date.now()}.webm`, { type: 'audio/webm' });
+      const audioFile = new File([audioBlob], `voice-message-${Date.now()}.mp4`, { type: 'audio/mp4' });
       const audioURL = await uploadFile(audioFile);
       setUploading(false);
       
@@ -1063,3 +1063,4 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
