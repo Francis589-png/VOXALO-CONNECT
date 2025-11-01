@@ -40,7 +40,7 @@ export interface Message {
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'game';
   imageURL?: string;
   fileURL?: string;
   fileName?: string;
@@ -49,6 +49,8 @@ export interface Message {
   editedAt?: Timestamp;
   role?: 'user' | 'model';
   content?: { text: string }[];
+  gameType?: 'checkers';
+  gameId?: string;
 }
 
 export interface Chat {
@@ -127,4 +129,34 @@ export interface JttNewsPost {
     link?: string;
     imageURL?: string;
     createdAt: Timestamp;
+}
+
+// --- Checkers Game Types ---
+export type Player = 'red' | 'black';
+
+export interface Piece {
+    player: Player;
+    isKing: boolean;
+}
+
+export type Square = Piece | null;
+export type Board = Square[][];
+
+export interface CheckersGame {
+    id: string;
+    board: Board;
+    players: {
+        red: string; // user id
+        black: string; // user id
+    };
+    playerNames: {
+        red: string;
+        black: string;
+    };
+    turn: Player;
+    winner: Player | null;
+    createdAt: Timestamp;
+    updatedAt: Timestamp;
+    gameOver: boolean;
+    lastMove?: { from: [number, number], to: [number, number] };
 }

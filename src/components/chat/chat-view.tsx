@@ -50,7 +50,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
-import type { Message, User as AppUser, Chat } from '@/types';
+import type { Message, User as AppUser, Chat, CheckersGame } from '@/types';
 import { cn, getMessagePreview, makeSerializable } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
@@ -90,6 +90,9 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { useConnectivity } from '../providers/connectivity-provider';
+import { createCheckersGame, forfeitCheckersGame } from '@/lib/actions/checkers-actions';
+import { Icons } from '../icons';
+import CheckersGameView from './checkers-game-view';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -189,6 +192,7 @@ function MessageBubble({
   onLongPress,
   isEditing,
   onSetEditing,
+  onPlayGame,
 }: {
   message: Message;
   isOwnMessage: boolean;
@@ -207,6 +211,7 @@ function MessageBubble({
   onLongPress: (message: Message) => void;
   isEditing: boolean;
   onSetEditing: (isEditing: boolean) => void;
+  onPlayGame: (gameId: string) => void;
 }) {
   const [editText, setEditText] = useState(message.text || '');
   const isMobile = useIsMobile();
@@ -314,6 +319,16 @@ function MessageBubble({
                     </div>
                 </a>
             );
+        case 'game':
+             return (
+                <div className='flex flex-col items-center gap-3 bg-background/50 p-4 rounded-md text-center'>
+                    <Icons.checkers className='h-12 w-12 text-primary' />
+                    <p className="text-sm font-medium">{message.text}</p>
+                    {message.gameId && (
+                       <Button onClick={() => onPlayGame(message.gameId!)}>Play Checkers</Button>
+                    )}
+                </div>
+            )
         case 'text':
         default:
             return <p className="text-sm break-words">{message.text}</p>;
@@ -399,7 +414,7 @@ function MessageBubble({
             'flex items-center gap-2 text-xs mt-1 self-end',
             isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground',
             hasReactions ? 'pt-2' : '',
-            (message.type === 'text') && !isEditing && 'px-2.5 pb-2.5'
+            (message.type === 'text' || message.type === 'game') && !isEditing && 'px-2.5 pb-2.5'
           )}
         >
           {message.editedAt && <span className="text-xs italic">edited</span>}
@@ -586,6 +601,9 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [mobileOptionsMessage, setMobileOptionsMessage] = useState<Message | null>(null);
+
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
+  const [checkersGame, setCheckersGame] = useState<CheckersGame | null>(null);
   
   const chatId = selectedChat?.id;
 
@@ -598,6 +616,23 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   if (typeof window !== 'undefined' && !deliveredSoundRef.current) {
     deliveredSoundRef.current = new Audio('/delivered.mp3');
   }
+
+  useEffect(() => {
+    if (activeGameId) {
+        const gameDocRef = doc(db, 'checkersGames', activeGameId);
+        const unsubscribe = onSnapshot(gameDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setCheckersGame({ id: docSnap.id, ...docSnap.data() } as CheckersGame);
+            } else {
+                setCheckersGame(null);
+                setActiveGameId(null);
+            }
+        });
+        return () => unsubscribe();
+    } else {
+        setCheckersGame(null);
+    }
+  }, [activeGameId]);
 
 
   useEffect(() => {
@@ -715,7 +750,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   }, [messages, selectedChat, searchQuery]);
 
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, type: Message['type'], gameType?: 'checkers', gameId?: string }) => {
     if (!chatId) return;
     
     let fullMessageData: any = { ...messageData };
@@ -743,6 +778,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     switch (messageData.type) {
         case 'image': lastMessageText = 'Image'; break;
         case 'file': lastMessageText = messageData.fileName || 'File'; break;
+        case 'game': lastMessageText = `Started a game of ${messageData.gameType}`; break;
         default: lastMessageText = messageData.text || '';
     }
 
@@ -1021,6 +1057,27 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   };
 
+  const handleStartCheckers = async () => {
+    if (!chatId || !otherUser) return;
+    try {
+        const gameId = await createCheckersGame(currentUser.uid, otherUser.uid, currentUser.displayName!, otherUser.displayName!);
+        await addMessageToChat({
+            type: 'game',
+            gameType: 'checkers',
+            gameId,
+            text: `${currentUser.displayName} has challenged ${otherUser.displayName} to a game of Checkers!`,
+            senderId: currentUser.uid,
+            timestamp: serverTimestamp(),
+            readBy: [currentUser.uid],
+            deletedFor: [],
+        });
+        setActiveGameId(gameId);
+    } catch(e) {
+        console.error(e);
+        toast({title: "Error starting game", description: "Could not start a new checkers game.", variant: "destructive"});
+    }
+  }
+
   if (!selectedChat) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-background chat-background">
@@ -1033,6 +1090,16 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         </div>
       </div>
     );
+  }
+  
+  if (activeGameId && checkersGame) {
+    return (
+        <CheckersGameView 
+            game={checkersGame}
+            currentUser={currentUser}
+            onClose={() => setActiveGameId(null)}
+        />
+    )
   }
   
   const initialOtherUser = chatData?.userInfos?.find(u => u.uid !== currentUser.uid);
@@ -1151,6 +1218,10 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                                     <User className="mr-2 h-4 w-4" />
                                     <span>View Profile</span>
                                 </DropdownMenuItem>
+                                <DropdownMenuItem onClick={handleStartCheckers}>
+                                    <Icons.checkers className="mr-2 h-4 w-4" />
+                                    <span>Play Checkers</span>
+                                </DropdownMenuItem>
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <DropdownMenuItem onSelect={(e) => e.preventDefault()} className='text-red-500'>
@@ -1235,6 +1306,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                                 setEditingMessageId(message.id);
                             }
                         }}
+                        onPlayGame={setActiveGameId}
                     />
                     );
                 })}

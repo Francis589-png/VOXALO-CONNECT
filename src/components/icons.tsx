@@ -1,3 +1,4 @@
+
 import { type LucideProps } from 'lucide-react';
 
 export const Icons = {
@@ -82,6 +83,21 @@ export const Icons = {
           <tspan x="20" y="45">JTT</tspan>
         </text>
       </g>
+    </svg>
+  ),
+  checkers: (props: LucideProps) => (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+        <path d="M12 2.5a9.5 9.5 0 1 0 9.5 9.5A9.51 9.51 0 0 0 12 2.5Zm0 17a7.5 7.5 0 1 1 7.5-7.5A7.5 7.5 0 0 1 12 19.5Z"/>
+        <path d="M12 5.5a6.5 6.5 0 1 0 6.5 6.5A6.51 6.51 0 0 0 12 5.5Zm0 11a4.5 4.5 0 1 1 4.5-4.5A4.5 4.5 0 0 1 12 16.5Z"/>
     </svg>
   ),
 };
