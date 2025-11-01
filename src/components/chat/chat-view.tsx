@@ -607,7 +607,11 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   
   const chatId = selectedChat?.id;
 
-  const otherUserId = useMemo(() => chatData?.users.find(u => u !== currentUser.uid), [chatData, currentUser]);
+  const otherUserId = useMemo(() => {
+    if (!chatData || chatData.isGroup) return null;
+    return chatData.users.find((u) => u !== currentUser.uid) || null;
+  }, [chatData, currentUser.uid]);
+
   const isBlockedByMe = currentUserData?.blockedUsers?.includes(otherUserId || '');
   const isBlockedByOther = otherUser?.blockedUsers?.includes(currentUser.uid);
   const canChat = (selectedChat && !isBlockedByMe && !isBlockedByOther && ((!selectedChat.isGroup && friendships.some(f => f.friend.uid === otherUserId)) || selectedChat?.isGroup));
@@ -670,18 +674,15 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   }, [currentUser?.uid]);
 
   useEffect(() => {
-    if (selectedChat && !selectedChat.isGroup) {
-      const otherUserId = selectedChat.users.find(u => u !== currentUser.uid);
-      if (otherUserId) {
+    if (otherUserId) {
         const unsub = onSnapshot(doc(db, 'users', otherUserId), (doc) => {
           setOtherUser(doc.data() as AppUser);
         });
         return () => unsub();
-      }
     } else {
         setOtherUser(null);
     }
-  }, [selectedChat, currentUser.uid]);
+  }, [otherUserId]);
 
 
   useEffect(() => {
@@ -1102,8 +1103,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     )
   }
   
-  const initialOtherUser = chatData?.userInfos?.find(u => u.uid !== currentUser.uid);
-
   return (
     <div className="flex h-full max-h-screen flex-col relative w-full chat-background">
       {selectedProfileUser && (
@@ -1389,7 +1388,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>
             <h3 className="text-xl font-semibold">{getChatName()}</h3>
-            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{isBlockedByMe ? 'You have blocked this user.' : isBlockedByOther ? 'You are blocked by this user.' : (initialOtherUser?.bio || '')}</p>
+            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{isBlockedByMe ? 'You have blocked this user.' : isBlockedByOther ? 'You are blocked by this user.' : (otherUser?.bio || '')}</p>
              {!isBlockedByMe && !isBlockedByOther && (
                 <p className="text-muted-foreground text-sm mt-4">
                 You are not friends with this user yet.
@@ -1402,3 +1401,5 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
+    
