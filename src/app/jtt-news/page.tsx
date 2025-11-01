@@ -1,10 +1,10 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
-import type { JttNewsPost, Feedback } from '@/types';
+import type { JttNewsPost, Feedback, User } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,14 @@ import { formatRelative } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { uploadFile } from '@/lib/pinata';
-import { AlertTriangle, ExternalLink, ImagePlus, Loader2, MessageSquareQuote, Send, Trash2 } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ImagePlus, Loader2, MessageSquareQuote, Send, Trash2, ShieldCheck, BanIcon, MessageSquare, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { setUserVerification, banUser } from '@/lib/actions/user-actions';
+import { useFriends } from '@/components/providers/friends-provider';
+import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
 
 const ADMIN_EMAIL = 'jusufrancis08@gmail.com';
 
@@ -234,11 +239,120 @@ function FeedbackCard({ feedback }: { feedback: Feedback }) {
     );
 }
 
+function UserManagementPanel() {
+    const { user: currentUser } = useAuth();
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const { createChat } = useFriends();
+    const router = useRouter();
+    const { toast } = useToast();
+
+    useEffect(() => {
+        const fetchUsers = async () => {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const usersData = usersSnapshot.docs.map(d => d.data() as User).filter(u => u.uid !== currentUser?.uid);
+            setAllUsers(usersData);
+        };
+        fetchUsers();
+    }, [currentUser]);
+
+    const handleVerify = async (userToVerify: User) => {
+        try {
+            await setUserVerification(userToVerify.uid, !userToVerify.isVerified);
+            setAllUsers(prev => prev.map(u => u.uid === userToVerify.uid ? { ...u, isVerified: !u.isVerified } : u));
+            toast({ title: `User ${!userToVerify.isVerified ? 'verified' : 'unverified'}.` });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to update verification status.', variant: 'destructive' });
+        }
+    };
+
+    const handleBan = async (userToBan: User) => {
+        try {
+            await banUser(userToBan.uid, !userToBan.isBanned);
+            setAllUsers(prev => prev.map(u => u.uid === userToBan.uid ? { ...u, isBanned: !u.isBanned } : u));
+            toast({ title: `User ${!userToBan.isBanned ? 'banned' : 'unbanned'}.` });
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to update ban status.', variant: 'destructive' });
+        }
+    };
+    
+    const handleMessage = async (userToMessage: User) => {
+        const chat = await createChat(userToMessage);
+        router.push(`/?chatId=${chat.id}`);
+    }
+
+    return (
+        <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+                <Users className="h-6 w-6 text-primary" />
+                <h2 className="text-2xl font-bold">User Management</h2>
+            </div>
+            <div className='grid gap-4'>
+                {allUsers.map(user => (
+                    <Card key={user.uid}>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Avatar>
+                                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
+                                    <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <div className='flex items-center gap-2'>
+                                        <p className="font-semibold">{user.displayName}</p>
+                                        {user.isVerified && <ShieldCheck className="h-5 w-5 text-blue-500" />}
+                                    </div>
+                                    <p className='text-sm text-muted-foreground'>{user.email}</p>
+                                </div>
+                            </div>
+                             {user.isBanned && <Badge variant="destructive">BANNED</Badge>}
+                        </CardHeader>
+                        <CardFooter className='flex gap-2'>
+                            <Button size="sm" variant="outline" onClick={() => handleVerify(user)}>
+                                <ShieldCheck className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'}
+                            </Button>
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="destructive">
+                                        <BanIcon className="mr-2 h-4 w-4" /> {user.isBanned ? 'Unban' : 'Ban'}
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            {user.isBanned
+                                                ? 'Unbanning this user will allow them to use the app again.'
+                                                : 'Banning this user will prevent them from logging in and using the app entirely.'
+                                            }
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleBan(user)} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+                                            {user.isBanned ? 'Unban' : 'Ban'}
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                            <Button size="sm" variant="secondary" onClick={() => handleMessage(user)}>
+                                <MessageSquare className="mr-2 h-4 w-4" /> Message
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+
 export default function JttNewsPage() {
     const { user } = useAuth();
     const [posts, setPosts] = useState<JttNewsPost[]>([]);
     const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('news');
+
+    const isAdmin = user?.email === ADMIN_EMAIL;
 
     useEffect(() => {
         const q = query(collection(db, 'jtt-news'), orderBy('createdAt', 'desc'));
@@ -254,7 +368,7 @@ export default function JttNewsPage() {
     }, []);
 
     useEffect(() => {
-        if (user?.email !== ADMIN_EMAIL) return;
+        if (!isAdmin) return;
 
         const q = query(collection(db, 'feedback'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -264,7 +378,57 @@ export default function JttNewsPage() {
             console.error("Error fetching feedback:", error);
         });
         return () => unsubscribe();
-    }, [user]);
+    }, [isAdmin]);
+
+    const renderContent = () => {
+        if (isLoading) {
+             return (
+                <div className="flex justify-center items-center h-64">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            );
+        }
+
+        switch (activeTab) {
+            case 'admin':
+                return <UserManagementPanel />;
+            case 'feedback':
+                 return (
+                    <div>
+                        <div className="flex items-center gap-2 mb-4">
+                           <MessageSquareQuote className="h-6 w-6 text-primary" />
+                           <h2 className="text-2xl font-bold">User Feedback</h2>
+                        </div>
+                        <div className="grid gap-6">
+                            {feedbacks.map(feedback => (
+                                <FeedbackCard key={feedback.id} feedback={feedback} />
+                            ))}
+                        </div>
+                    </div>
+                );
+            case 'news':
+            default:
+                 return (
+                    <div>
+                        {user && <CreatePostForm />}
+                         {!isLoading && posts.length === 0 ? (
+                            <div className="text-center text-muted-foreground py-16">
+                                <AlertTriangle className="mx-auto h-12 w-12 mb-4" />
+                                <h3 className="text-xl font-semibold">No News Yet</h3>
+                                <p>Check back later for the latest updates!</p>
+                            </div>
+                        ) : (
+                             <div className="grid gap-6">
+                                {posts.map(post => (
+                                    <PostCard key={post.id} post={post} canDelete={isAdmin} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+        }
+    }
+
 
     return (
         <div className="h-full w-full bg-background chat-background">
@@ -277,47 +441,19 @@ export default function JttNewsPage() {
                             <p className="mt-2 text-lg opacity-80">The latest updates, right from the source.</p>
                         </div>
                     </div>
-                    
-                    {user && <CreatePostForm />}
 
-                    {user?.email === ADMIN_EMAIL && feedbacks.length > 0 && (
-                        <div className="mb-8">
-                            <div className="flex items-center gap-2 mb-4">
-                               <MessageSquareQuote className="h-6 w-6 text-primary" />
-                               <h2 className="text-2xl font-bold">User Feedback</h2>
-                            </div>
-                            <div className="grid gap-6">
-                                {feedbacks.map(feedback => (
-                                    <FeedbackCard key={feedback.id} feedback={feedback} />
-                                ))}
-                            </div>
-                            <Separator className="my-8" />
+                    {isAdmin && (
+                        <div className='flex items-center justify-center gap-2 mb-8 border-b'>
+                            <Button variant={activeTab === 'news' ? 'default' : 'ghost'} onClick={() => setActiveTab('news')}>News</Button>
+                            <Button variant={activeTab === 'feedback' ? 'default' : 'ghost'} onClick={() => setActiveTab('feedback')}>Feedback ({feedbacks.length})</Button>
+                            <Button variant={activeTab === 'admin' ? 'default' : 'ghost'} onClick={() => setActiveTab('admin')}>Admin Panel</Button>
                         </div>
                     )}
                     
-                    {isLoading && (
-                        <div className="flex justify-center items-center h-64">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    )}
-                    
-                    {!isLoading && posts.length === 0 && (
-                        <div className="text-center text-muted-foreground py-16">
-                            <AlertTriangle className="mx-auto h-12 w-12 mb-4" />
-                            <h3 className="text-xl font-semibold">No News Yet</h3>
-                            <p>Check back later for the latest updates!</p>
-                        </div>
-                    )}
+                    {renderContent()}
 
-                    <div className="grid gap-6">
-                        {posts.map(post => (
-                            <PostCard key={post.id} post={post} canDelete={user?.email === ADMIN_EMAIL} />
-                        ))}
-                    </div>
                 </div>
             </ScrollArea>
         </div>
     );
 }
-
-    

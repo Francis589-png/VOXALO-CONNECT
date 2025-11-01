@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { useFriends } from '@/components/providers/friends-provider';
 import type { User } from '@/types';
-import { Check, UserPlus, Ban, ShieldCheck, CheckCircle, BanIcon } from 'lucide-react';
+import { Check, UserPlus, Ban, ShieldCheck } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/use-auth';
@@ -30,9 +30,6 @@ import {
     AlertDialogTrigger,
   } from '@/components/ui/alert-dialog';
 import { useEffect, useState } from 'react';
-import { setUserVerification, banUser } from '@/lib/actions/user-actions';
-
-const ADMIN_EMAIL = 'jusufrancis08@gmail.com';
 
 interface UserProfileCardProps {
   user: User | null;
@@ -61,7 +58,6 @@ function ProfileContent({ user }: { user: User }) {
   if (!user || !currentUser) return null;
   
   const isBlocked = currentUserData?.blockedUsers?.includes(user.uid);
-  const isAdmin = currentUser.email === ADMIN_EMAIL;
   
   const status = getFriendshipStatus(user.uid);
   const incomingRequest = incomingRequests.find(req => req.senderId === user.uid);
@@ -81,25 +77,6 @@ function ProfileContent({ user }: { user: User }) {
     });
     toast({ title: `${user.displayName} unblocked.`});
   };
-
-  const handleVerify = async () => {
-    try {
-      await setUserVerification(user.uid, !user.isVerified);
-      toast({ title: `User ${!user.isVerified ? 'verified' : 'unverified'}.` });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update verification status.', variant: 'destructive' });
-    }
-  };
-
-  const handleBan = async () => {
-    try {
-      await banUser(user.uid, !user.isBanned);
-      toast({ title: `User ${!user.isBanned ? 'banned' : 'unbanned'}.` });
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update ban status.', variant: 'destructive' });
-    }
-  };
-
 
   const renderFriendshipAction = () => {
     if (isBlocked) {
@@ -162,39 +139,6 @@ function ProfileContent({ user }: { user: User }) {
         <p className="text-sm text-muted-foreground">{user.bio || 'No bio yet.'}</p>
       </div>
       <div className="flex justify-center">{renderFriendshipAction()}</div>
-
-      {isAdmin && user.uid !== currentUser.uid && (
-        <div className='mt-6 pt-6 border-t w-full flex flex-col gap-2'>
-            <h3 className='text-sm font-medium text-muted-foreground'>Admin Actions</h3>
-            <Button variant="outline" onClick={handleVerify}>
-                <CheckCircle className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'} User
-            </Button>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant='destructive'>
-                        <BanIcon className="mr-2 h-4 w-4" /> {user.isBanned ? 'Unban' : 'Ban'} User
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitleComponent>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitleComponent>
-                        <AlertDialogDescription>
-                            {user.isBanned
-                                ? 'Unbanning this user will allow them to use the app again.'
-                                : 'Banning this user will prevent them from logging in and using the app entirely.'
-                            }
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleBan} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
-                            {user.isBanned ? 'Unban' : 'Ban'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-        </div>
-      )}
     </div>
   );
 }
@@ -241,5 +185,3 @@ export default function UserProfileCard({
     </Dialog>
   );
 }
-
-    
