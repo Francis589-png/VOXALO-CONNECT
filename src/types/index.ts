@@ -77,6 +77,7 @@ export type Friendship = {
   users: string[];
   userInfos: { [key: string]: User };
   friend: User;
+  blockedUsers?: string[];
 };
 
 // --- Game Types ---

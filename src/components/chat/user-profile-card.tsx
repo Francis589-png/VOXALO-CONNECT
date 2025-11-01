@@ -16,6 +16,17 @@ import { useAuth } from '@/hooks/use-auth';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+  } from '@/components/ui/alert-dialog';
 
 
 interface UserProfileCardProps {
@@ -32,9 +43,10 @@ function ProfileContent({ user }: { user: User }) {
   
   if (!user || !currentUser) return null;
   
-  const status = getFriendshipStatus(user.uid);
+  const friendship = friendships.find(f => f.friend.uid === user.uid);
   const isBlocked = friendships.find(f => f.friend.uid === currentUser.uid)?.blockedUsers?.includes(user.uid);
   
+  const status = getFriendshipStatus(user.uid);
   const incomingRequest = incomingRequests.find(req => req.senderId === user.uid);
 
   const handleBlock = async () => {
@@ -60,7 +72,25 @@ function ProfileContent({ user }: { user: User }) {
     
     switch (status) {
       case 'friends':
-        return <Button variant="destructive" onClick={handleBlock}><Ban className='mr-2' /> Block</Button>;
+        return (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive"><Ban className='mr-2 h-4 w-4' /> Block</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Block {user.displayName}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Blocked users will not be able to send you messages or friend requests. They will not be notified that you have blocked them.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleBlock} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>Block</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+        );
       case 'pending-outgoing':
         return <Button variant="secondary" disabled>Request Sent</Button>;
       case 'pending-incoming':
@@ -74,7 +104,7 @@ function ProfileContent({ user }: { user: User }) {
         }
         return null;
       case 'not-friends':
-        return <Button onClick={() => sendFriendRequest(user.uid)}><UserPlus className='mr-2' /> Add Friend</Button>;
+        return <Button onClick={() => sendFriendRequest(user.uid)}><UserPlus className='mr-2 h-4 w-4' /> Add Friend</Button>;
       default:
         return null;
     }
