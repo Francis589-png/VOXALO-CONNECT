@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -38,12 +39,10 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
         const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
             console.log('Foreground message received.', payload);
 
-            // With a data-only payload, the notification info is in payload.data
             if (payload && payload.data) {
                 const { title, body, chatId } = payload.data;
                 const currentChatId = searchParams.get('chatId');
 
-                // Don't show notification if user is already in the chat and window is focused
                 if (pathname === '/' && chatId === currentChatId && document.hasFocus()) {
                     return;
                 }
