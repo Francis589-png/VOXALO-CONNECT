@@ -138,7 +138,7 @@ function ProfileContent({ user }: { user: User }) {
           <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
         </Avatar>
         <div className='flex items-center gap-2'>
-            <h2 className='text-xl font-semibold'>{isOfficial ? 'Bavard' : user.displayName}</h2>
+            <h2 className='text-xl font-semibold'>{isOfficial ? 'VoxaLo Connect' : user.displayName}</h2>
             {(user.isVerified || isOfficial) && <Icons.verified className="h-5 w-5" />}
         </div>
         <p className="text-sm text-muted-foreground mt-1">{user.statusMessage}</p>

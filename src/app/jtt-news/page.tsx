@@ -362,7 +362,7 @@ function UserManagementPanel() {
                                     </Avatar>
                                     <div>
                                         <div className='flex items-center gap-2'>
-                                            <p className="font-semibold">{isOfficial ? 'Bavard' : user.displayName}</p>
+                                            <p className="font-semibold">{isOfficial ? 'VoxaLo Connect' : user.displayName}</p>
                                             {(user.isVerified || isOfficial) && <Icons.verified className="h-5 w-5" />}
                                         </div>
                                         <p className='text-sm text-muted-foreground'>{user.email}</p>
