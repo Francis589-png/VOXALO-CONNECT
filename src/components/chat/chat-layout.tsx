@@ -33,7 +33,6 @@ import GamesBrowserPage from './games-browser-page';
 import VideoBrowserPage from './video-browser-page';
 import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
 import { Badge } from '../ui/badge';
-import AssistantView from './assistant-view';
 import JttNewsPage from '@/app/jtt-news/page';
 import FeedbackView from './feedback-view';
 
@@ -43,7 +42,7 @@ interface ChatLayoutProps {
   initialChatId?: string | null;
 }
 
-type MainView = 'chat' | 'assistant' | 'feedback';
+type MainView = 'chat' | 'feedback';
 
 export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
@@ -89,11 +88,6 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
     return () => unsubscribe();
   }, [currentUser]);
   
-  const handleSelectAssistant = () => {
-    setSelectedChat(null);
-    setMainView('assistant');
-  };
-
   const handleSelectFeedback = () => {
     setSelectedChat(null);
     setMainView('feedback');
@@ -108,8 +102,6 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
   const renderMainView = () => {
     switch (mainView) {
-      case 'assistant':
-        return <AssistantView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />;
       case 'feedback':
         return <FeedbackView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />;
       case 'chat':
@@ -214,23 +206,6 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
           </div>
           <Separator />
           <TabsContent value="contacts" className="flex-1 overflow-y-auto mt-0">
-            <button
-                onClick={handleSelectAssistant}
-                className={cn(
-                    'flex items-center gap-3 p-4 text-left w-full transition-colors',
-                    mainView === 'assistant' ? 'bg-accent' : 'hover:bg-accent/50'
-                )}
-            >
-                <Avatar className="h-10 w-10">
-                    <div className='flex items-center justify-center h-full w-full bg-gradient-to-br from-primary to-purple-500 rounded-full'>
-                        <Sparkles className="h-6 w-6 text-white" />
-                    </div>
-                </Avatar>
-                <div className="flex-1 overflow-hidden">
-                    <p className="font-semibold truncate">VoxaLo AI</p>
-                    <p className="text-xs text-muted-foreground truncate">Your personal assistant</p>
-                </div>
-            </button>
             <CreateGroupDialog currentUser={currentUser} onGroupCreated={handleSelectChat}>
                 <Button variant="ghost" className="w-full justify-start gap-3 p-4 text-left h-auto rounded-none">
                     <div className='p-2 bg-muted rounded-full'>
