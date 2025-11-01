@@ -50,6 +50,11 @@ function CreatePostForm() {
         setIsLoading(true);
 
         try {
+            let imageURL: string | undefined;
+            if (image) {
+                imageURL = await uploadFile(image);
+            }
+
             const postData: DocumentData = {
                 authorId: user.uid,
                 authorName: user.displayName,
@@ -62,8 +67,7 @@ function CreatePostForm() {
                 postData.link = link.trim();
             }
             
-            if (image) {
-                const imageURL = await uploadFile(image);
+            if (imageURL) {
                 postData.imageURL = imageURL;
             }
 
@@ -77,7 +81,7 @@ function CreatePostForm() {
             toast({ title: 'Post created successfully!' });
         } catch (error) {
             console.error(error);
-            toast({ title: 'Error creating post', variant: 'destructive' });
+            toast({ title: 'Error creating post', description: 'There was an issue uploading your post.', variant: 'destructive' });
         } finally {
             setIsLoading(false);
         }
