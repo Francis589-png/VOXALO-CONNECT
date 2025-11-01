@@ -115,4 +115,14 @@ export interface ArchiveVideo {
   year: string;
 }
 
-    
+// --- JTT News Types ---
+export interface JttNewsPost {
+    id: string;
+    authorId: string;
+    authorName: string;
+    authorPhotoURL: string;
+    text: string;
+    link?: string;
+    imageURL?: string;
+    createdAt: Timestamp;
+}

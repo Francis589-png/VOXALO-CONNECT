@@ -1,7 +1,8 @@
 
+
 'use client';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
-import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles } from 'lucide-react';
+import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles, Newspaper } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
@@ -33,6 +34,7 @@ import VideoBrowserPage from './video-browser-page';
 import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
 import { Badge } from '../ui/badge';
 import AssistantView from './assistant-view';
+import JttNewsPage from '@/app/jtt-news/page';
 
 
 interface ChatLayoutProps {
@@ -142,7 +144,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
           <div className='p-4'>
-            <TabsList className="w-full grid grid-cols-4 gap-2">
+            <TabsList className="w-full grid grid-cols-5 gap-2">
               <TabsTrigger value="contacts" className='relative'>
                 Contacts
                 {totalUnreadCount > 0 && (
@@ -158,6 +160,10 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
               <TabsTrigger value="watch">
                 <Clapperboard className='h-4 w-4 mr-2'/>
                 VX Movies
+              </TabsTrigger>
+              <TabsTrigger value="news">
+                  <Newspaper className='h-4 w-4 mr-2'/>
+                  JTT News
               </TabsTrigger>
               <TabsTrigger value="explore">
                 Explore
@@ -216,6 +222,9 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
           <TabsContent value="watch" className="flex-1 overflow-y-auto mt-0 p-0">
             <VideoBrowserPage />
           </TabsContent>
+          <TabsContent value="news" className="flex-1 overflow-y-auto mt-0 p-0">
+             <JttNewsPage />
+          </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />
           </TabsContent>
@@ -236,5 +245,3 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
     </div>
   );
 }
-
-    
