@@ -89,6 +89,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { useConnectivity } from '../providers/connectivity-provider';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -567,6 +568,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const deliveredSoundRef = useRef<HTMLAudioElement | null>(null);
   const previousMessagesRef = useRef<Message[]>([]);
   const { toast } = useToast();
+  const { isOnline } = useConnectivity();
 
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
@@ -1280,25 +1282,25 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     ref={fileInputRef}
                     onChange={handleFileChange}
                     className="hidden"
-                    disabled={uploading}
+                    disabled={uploading || !isOnline}
                     />
-                    <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading} className='shrink-0'>
+                    <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading || !isOnline} className='shrink-0'>
                         <Paperclip className="h-5 w-5" />
                     </Button>
 
                     <Textarea
                         ref={inputRef}
                         onKeyDown={handleKeyDown}
-                        placeholder={'Type a message...'}
+                        placeholder={!isOnline ? 'You are offline' : 'Type a message...'}
                         autoComplete="off"
-                        disabled={uploading}
+                        disabled={uploading || !isOnline}
                         className="bg-background/80"
                         maxRows={5}
                     />
                     <Button
                         type="submit"
                         size="icon"
-                        disabled={uploading}
+                        disabled={uploading || !isOnline}
                         className='shrink-0'
                     >
                         <Send className="h-5 w-5" />
