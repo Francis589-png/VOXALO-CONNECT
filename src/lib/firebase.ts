@@ -1,3 +1,4 @@
+
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
@@ -17,10 +18,9 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 const db = getFirestore(app);
-const rtdb = getDatabase(app);
 
 
 // Check if we are in a browser environment before initializing messaging
 const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
 
-export { app, auth, db, messaging, rtdb };
+export { app, auth, db, messaging };

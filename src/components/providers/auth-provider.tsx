@@ -6,9 +6,9 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useEffect, useState } from 'react';
-import { auth, db, rtdb } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import Loading from '@/app/loading';
-import { onValue, ref, onDisconnect, set, serverTimestamp as rtdbServerTimestamp } from 'firebase/database';
+import { onValue, ref, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, getDatabase } from 'firebase/database';
 
 
 type AuthContextType = {
@@ -30,6 +30,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
+        const rtdb = getDatabase();
         const userDocRef = doc(db, 'users', user.uid);
         const userStatusRef = ref(rtdb, `status/${user.uid}`);
         

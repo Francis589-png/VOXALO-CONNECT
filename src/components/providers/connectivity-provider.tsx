@@ -2,8 +2,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { onValue, ref } from 'firebase/database';
-import { rtdb } from '@/lib/firebase';
+import { onValue, ref, getDatabase } from 'firebase/database';
+import { app } from '@/lib/firebase';
 import { WifiOff } from 'lucide-react';
 
 type ConnectivityContextType = {
@@ -16,6 +16,7 @@ export function ConnectivityProvider({ children }: { children: ReactNode }) {
   const [isOnline, setIsOnline] = useState<boolean>(true);
 
   useEffect(() => {
+    const rtdb = getDatabase(app);
     const connectedRef = ref(rtdb, '.info/connected');
     const unsubscribe = onValue(connectedRef, (snap) => {
       const connected = snap.val() === true;
