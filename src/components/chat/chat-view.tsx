@@ -200,7 +200,7 @@ function AudioPlayer({ src }: { src: string | Blob }) {
             audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
             audio.removeEventListener('ended', handleEnded);
         };
-    }, [audioRef]);
+    }, [audioRef, audioSrc]);
     
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (audioRef.current) {
@@ -214,6 +214,8 @@ function AudioPlayer({ src }: { src: string | Blob }) {
         const seconds = Math.floor(time % 60).toString().padStart(2, '0');
         return `${minutes}:${seconds}`;
     }
+
+    if (!audioSrc) return null;
 
     return (
         <div className="flex items-center gap-2 w-64">
@@ -545,11 +547,12 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const handleSendAudio = async () => {
       if (audioChunksRef.current.length === 0) return;
       
-      const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/mp4' });
+      const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
+      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
       audioChunksRef.current = []; // Clear chunks for next recording
       
       setUploading(true);
-      const audioFile = new File([audioBlob], `voice-message-${Date.now()}.mp4`, { type: 'audio/mp4' });
+      const audioFile = new File([audioBlob], `voice-message-${Date.now()}.${mimeType.split('/')[1]}`, { type: mimeType });
       const audioURL = await uploadFile(audioFile);
       setUploading(false);
       
@@ -1085,5 +1088,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
 
 
