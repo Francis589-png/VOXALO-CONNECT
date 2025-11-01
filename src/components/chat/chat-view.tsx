@@ -412,7 +412,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const chatId = selectedChat?.id;
 
   if (typeof window !== 'undefined' && !deliveredSoundRef.current) {
-    deliveredSoundRef.current = new Audio('/notification.mp3');
+    deliveredSoundRef.current = new Audio('/delivered.mp3');
   }
 
 
