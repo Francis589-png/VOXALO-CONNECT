@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { onMessage, type MessagePayload } from 'firebase/messaging';
-import { onMessageListener } from '@/lib/firebase-messaging';
+import { messaging } from '@/lib/firebase-messaging';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -31,15 +31,15 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
   }, [user?.uid])
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && user) {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator && user && messaging) {
         
-        const handleMessage = (payload: MessagePayload) => {
+        const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
             console.log('Foreground message received.', payload);
             if (payload && payload.data) {
                 const { title, body, chatId } = payload.data;
                 const currentChatId = searchParams.get('chatId');
 
-                // Don't show notification if user is already in the chat
+                // Don't show notification if user is already in the chat and window is focused
                 if (pathname === '/' && chatId === currentChatId && document.hasFocus()) {
                     return;
                 }
@@ -62,12 +62,8 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
                     audio.play().catch(e => console.error("Error playing notification sound:", e));
                 }
             }
-        };
-        
-        // Correctly set up the listener
-        const unsubscribe = onMessageListener(handleMessage);
+        });
 
-        // Cleanup the listener when the component unmounts
         return () => {
             unsubscribe();
         };
