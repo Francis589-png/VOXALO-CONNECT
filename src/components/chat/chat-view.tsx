@@ -34,9 +34,6 @@ import {
   Pencil,
   Users as UsersIcon,
   Search,
-  Mic,
-  Pause,
-  Play,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -143,105 +140,6 @@ function ReadReceipt({
   return <ReadIcon className={`h-4 w-4 ${iconColor}`} />;
 }
 
-function AudioPlayer({ src }: { src: string | Blob }) {
-    const audioRef = useRef<HTMLAudioElement>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [duration, setDuration] = useState(0);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [audioSrc, setAudioSrc] = useState<string | undefined>(undefined);
-
-    useEffect(() => {
-        let objectUrl: string | undefined;
-
-        if (src instanceof Blob) {
-            objectUrl = URL.createObjectURL(src);
-            setAudioSrc(objectUrl);
-        } else if (typeof src === 'string') {
-            setAudioSrc(src);
-        }
-
-        return () => {
-            if (objectUrl) {
-                URL.revokeObjectURL(objectUrl);
-            }
-        };
-    }, [src]);
-
-    const togglePlayPause = () => {
-        if (audioRef.current) {
-            if (isPlaying) {
-                audioRef.current.pause();
-            } else {
-                audioRef.current.play().catch(e => console.error("Audio play failed:", e));
-            }
-        }
-    };
-
-    useEffect(() => {
-        const audio = audioRef.current;
-        if (!audio) return;
-
-        const handlePlay = () => setIsPlaying(true);
-        const handlePause = () => setIsPlaying(false);
-        const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-        const handleLoadedMetadata = () => setDuration(audio.duration);
-        const handleEnded = () => setIsPlaying(false);
-
-        audio.addEventListener('play', handlePlay);
-        audio.addEventListener('pause', handlePause);
-        audio.addEventListener('timeupdate', handleTimeUpdate);
-        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.addEventListener('ended', handleEnded);
-
-        return () => {
-            audio.removeEventListener('play', handlePlay);
-            audio.removeEventListener('pause', handlePause);
-            audio.removeEventListener('timeupdate', handleTimeUpdate);
-            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            audio.removeEventListener('ended', handleEnded);
-        };
-    }, [audioRef, audioSrc]);
-    
-    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (audioRef.current) {
-            audioRef.current.currentTime = Number(e.target.value);
-        }
-    };
-    
-    const formatTime = (time: number) => {
-        if (isNaN(time) || time === Infinity) return '0:00';
-        const minutes = Math.floor(time / 60);
-        const seconds = Math.floor(time % 60).toString().padStart(2, '0');
-        return `${minutes}:${seconds}`;
-    }
-
-    if (!audioSrc) return null;
-
-    return (
-        <div className="flex items-center gap-2 w-64">
-            <audio ref={audioRef} src={audioSrc} preload="metadata" className="hidden" />
-            <Button onClick={togglePlayPause} size="icon" variant="ghost" className='h-9 w-9 shrink-0'>
-                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
-            </Button>
-            <div className='flex-1 flex flex-col gap-1'>
-                <input
-                    type="range"
-                    min="0"
-                    max={duration || 0}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className="w-full h-1 bg-muted-foreground/30 rounded-lg appearance-none cursor-pointer"
-                />
-                 <div className="text-xs flex justify-between">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function MessageBubble({
   message,
   isOwnMessage,
@@ -277,10 +175,9 @@ function MessageBubble({
     
   const getRepliedMessagePreview = () => {
     if (!message.replyTo) return null;
-    const { type, text, imageURL, fileName, audioURL } = message.replyTo;
+    const { type, text, imageURL, fileName } = message.replyTo;
     if (type === 'image') return 'Image';
     if (type === 'file') return fileName || 'File';
-    if (type === 'audio') return 'Voice message';
     return text;
   }
   
@@ -343,8 +240,6 @@ function MessageBubble({
                     </div>
                 </a>
             );
-        case 'audio':
-            return message.audioURL ? <AudioPlayer src={message.audioURL} /> : null;
         case 'text':
         default:
             return <p className="text-sm break-words">{message.text}</p>;
@@ -352,7 +247,7 @@ function MessageBubble({
   };
 
   const hasReactions = message.reactions && Object.keys(message.reactions).length > 0;
-  const bubblePadding = message.type === 'image' || message.type === 'audio' ? 'p-1' : 'p-2.5';
+  const bubblePadding = message.type === 'image' ? 'p-1' : 'p-2.5';
   
   if (message.deletedFor?.includes(currentUser.uid)) {
     return null;
@@ -509,68 +404,12 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const { setGroup } = useGroupInfo();
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
   
   const chatId = selectedChat?.id;
 
-  const startRecording = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                audioChunksRef.current.push(event.data);
-            };
-
-        } catch (err) {
-            console.error('Error accessing microphone:', err);
-        }
-    }
-  };
-
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.onstop = handleSendAudio;
-      mediaRecorderRef.current.stop();
-      setIsRecording(false);
-    }
-  };
-
-  const handleSendAudio = async () => {
-      if (audioChunksRef.current.length === 0) return;
-      
-      const mimeType = mediaRecorderRef.current?.mimeType || 'audio/webm';
-      const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-      audioChunksRef.current = []; // Clear chunks for next recording
-      
-      setUploading(true);
-      const audioFile = new File([audioBlob], `voice-message-${Date.now()}.${mimeType.split('/')[1]}`, { type: mimeType });
-      const audioURL = await uploadFile(audioFile);
-      setUploading(false);
-      
-      if (!chatData) return;
-
-      const audio = new Audio(URL.createObjectURL(audioBlob));
-      audio.onloadedmetadata = async () => {
-        await addMessageToChat({
-            type: 'audio',
-            senderId: currentUser.uid,
-            timestamp: serverTimestamp(),
-            readBy: [currentUser.uid],
-            deletedFor: [],
-            audioURL: audioURL,
-            audioDuration: audio.duration,
-        });
-      };
-  };
 
   useEffect(() => {
     if (selectedChat) {
@@ -670,7 +509,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   }, [messages, selectedChat, searchQuery]);
 
-  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt' | 'audioURL' | 'audioDuration'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number, audioURL?: string, audioDuration?: number }) => {
+  const addMessageToChat = async (messageData: Omit<Message, 'id' | 'timestamp' | 'text' | 'imageURL' | 'fileURL' | 'fileName' | 'fileSize' | 'editedAt'> & { timestamp: any, text?: string, imageURL?: string, fileURL?: string, fileName?: string, fileSize?: number }) => {
     if (!chatId) return;
     
     let fullMessageData: any = { ...messageData };
@@ -684,7 +523,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             type: replyingTo.type,
             imageURL: replyingTo.imageURL || null,
             fileName: replyingTo.fileName || null,
-            audioURL: replyingTo.audioURL || null,
         };
     }
 
@@ -699,7 +537,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     switch (messageData.type) {
         case 'image': lastMessageText = 'Image'; break;
         case 'file': lastMessageText = messageData.fileName || 'File'; break;
-        case 'audio': lastMessageText = 'Voice message'; break;
         default: lastMessageText = messageData.text || '';
     }
 
@@ -1002,12 +839,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 </div>
             )}
             {uploading && <Progress value={undefined} className="mb-2 h-1" />}
-            {isRecording && (
-                <div className="flex items-center gap-2 mb-2 text-red-500">
-                    <Mic className="h-5 w-5 animate-pulse" />
-                    <span>Recording...</span>
-                </div>
-            )}
             <form
                 onSubmit={handleSendMessage}
                 className={cn(
@@ -1040,32 +871,17 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     }}
                     placeholder={'Type a message...'}
                     autoComplete="off"
-                    disabled={uploading || isRecording}
+                    disabled={uploading}
                     className="bg-background/80"
                 />
-                {newMessage.trim() ? (
-                    <Button
-                        type="submit"
-                        size="icon"
-                        disabled={uploading || !newMessage.trim()}
-                        className='shrink-0'
-                    >
-                        <Send className="h-5 w-5" />
-                    </Button>
-                ) : (
-                    <Button
-                        type="button"
-                        size="icon"
-                        onMouseDown={startRecording}
-                        onMouseUp={stopRecording}
-                        onTouchStart={startRecording}
-                        onTouchEnd={stopRecording}
-                        disabled={uploading}
-                        className={cn('shrink-0', isRecording && 'bg-red-500 hover:bg-red-600')}
-                    >
-                        <Mic className="h-5 w-5" />
-                    </Button>
-                )}
+                <Button
+                    type="submit"
+                    size="icon"
+                    disabled={uploading || !newMessage.trim()}
+                    className='shrink-0'
+                >
+                    <Send className="h-5 w-5" />
+                </Button>
             </form>
             </div>
         </>
@@ -1088,6 +904,3 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
-
-
-

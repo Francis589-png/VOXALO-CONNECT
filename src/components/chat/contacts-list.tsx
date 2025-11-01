@@ -11,7 +11,7 @@ import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
+import { Users, File, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getMessagePreview } from '@/lib/utils';
 
@@ -73,8 +73,6 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
                 return <ImageIcon className="h-3 w-3" />;
             case 'file':
                 return <File className="h-3 w-3" />;
-            case 'audio':
-                return <Mic className="h-3 w-3" />;
             default:
                 return null;
         }

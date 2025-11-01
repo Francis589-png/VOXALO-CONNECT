@@ -17,8 +17,6 @@ export const getMessagePreview = (message: Message) => {
         return 'Sent an image';
       case 'file':
         return `Sent a file: ${message.fileName || 'attachment'}`;
-      case 'audio':
-          return 'Sent a voice message';
       default:
         return message.text;
     }
