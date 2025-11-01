@@ -13,8 +13,8 @@ import { generateImage } from '@/ai/flows/image-generation-flow';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '../ui/scroll-area';
-import { Textarea } from '../ui/textarea';
 import Image from 'next/image';
+import { Textarea } from '../ui/textarea';
 
 
 function MessageBubble({
@@ -97,7 +97,6 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -123,9 +122,6 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
     const text = newMessage;
     setNewMessage('');
     setIsLoading(true);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -240,7 +236,6 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
                 className="flex items-start gap-2"
             >
                 <Textarea
-                    ref={textareaRef}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
@@ -253,6 +248,7 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
                     autoComplete="off"
                     disabled={isLoading}
                     className="bg-background/80"
+                    maxRows={5}
                 />
                 <Button
                     type="submit"

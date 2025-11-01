@@ -392,7 +392,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<AppUser | null>(null);
@@ -562,10 +561,6 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
     const text = newMessage;
     setNewMessage('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-
 
     const messageData = {
         type: 'text' as const,
@@ -858,11 +853,8 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 </Button>
 
                 <Textarea
-                    ref={textareaRef}
                     value={newMessage}
-                    onChange={(e) => {
-                        setNewMessage(e.target.value);
-                    }}
+                    onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -873,6 +865,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                     autoComplete="off"
                     disabled={uploading}
                     className="bg-background/80"
+                    maxRows={5}
                 />
                 <Button
                     type="submit"
