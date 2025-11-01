@@ -14,6 +14,7 @@ import {
   getDoc,
   Timestamp,
   arrayRemove,
+  writeBatch,
 } from 'firebase/firestore';
 import type { User as FirebaseUser } from 'firebase/auth';
 import {
@@ -36,6 +37,7 @@ import {
   Search,
   Pin,
   PinOff,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -63,6 +65,7 @@ import { useGroupInfo } from '../providers/group-info-provider';
 import { Textarea } from '../ui/textarea';
 import { pinMessage, unpinMessage } from '@/lib/actions/chat-actions';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '../ui/checkbox';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -156,6 +159,9 @@ function MessageBubble({
   sender,
   onSaveEdit,
   onPinMessage,
+  selectionMode,
+  isSelected,
+  onToggleSelection,
 }: {
   message: Message;
   isOwnMessage: boolean;
@@ -168,6 +174,9 @@ function MessageBubble({
   sender: AppUser | undefined;
   onSaveEdit: (messageId: string, newText: string) => void;
   onPinMessage: (message: Message) => void;
+  selectionMode: boolean;
+  isSelected: boolean;
+  onToggleSelection: (messageId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text || '');
@@ -264,11 +273,17 @@ function MessageBubble({
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-2',
+        'group relative flex items-start gap-2 transition-colors',
         isOwnMessage ? 'flex-row-reverse' : 'flex-row',
-        isPinned && 'bg-primary/5 rounded-md p-2 -mx-2'
+        isPinned && !selectionMode && 'bg-primary/5 rounded-md p-2 -mx-2',
+        selectionMode && 'cursor-pointer rounded-md p-2 -mx-2',
+        isSelected && 'bg-primary/10'
       )}
+      onClick={() => selectionMode && onToggleSelection(message.id)}
     >
+       {selectionMode && (
+         <Checkbox checked={isSelected} onCheckedChange={() => onToggleSelection(message.id)} className={cn('mt-1', isOwnMessage ? 'ml-2' : 'mr-2')} />
+       )}
        {(!isOwnMessage && chat.isGroup) && (
         <UserProfileCard user={sender}>
             <Avatar className="h-8 w-8 cursor-pointer">
@@ -335,7 +350,7 @@ function MessageBubble({
           />
         </div>
       </div>
-      {!isEditing && (
+      {!isEditing && !selectionMode && (
          <div className={cn("flex items-center opacity-0 group-hover:opacity-100 transition-opacity", isOwnMessage ? "flex-row-reverse" : "flex-row")}>
             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onReply(message)}>
                 <Reply className="h-4 w-4" />
@@ -421,6 +436,9 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+
   const canChat =
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
   
@@ -769,6 +787,43 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     );
   }, [messages, searchQuery]);
   
+  const handleToggleSelection = (messageId: string) => {
+    setSelectedMessages(prev => 
+        prev.includes(messageId) 
+            ? prev.filter(id => id !== messageId) 
+            : [...prev, messageId]
+    );
+  };
+  
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedMessages([]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (!chatId || selectedMessages.length === 0) return;
+
+    const batch = writeBatch(db);
+    selectedMessages.forEach(messageId => {
+      const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+      const message = messages.find(m => m.id === messageId);
+      // Only allow deleting own messages for everyone
+      if (message?.senderId === currentUser.uid) {
+        batch.delete(messageRef);
+      } else {
+        batch.update(messageRef, { deletedFor: arrayUnion(currentUser.uid) });
+      }
+    });
+
+    try {
+      await batch.commit();
+      toast({ title: `${selectedMessages.length} messages deleted.` });
+      handleCancelSelection();
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to delete messages.', variant: 'destructive' });
+    }
+  };
+
 
   if (!selectedChat) {
     return (
@@ -834,24 +889,28 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 <Button variant="ghost" size="icon" onClick={() => setIsSearching(prev => !prev)}>
                     {isSearching ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
                 </Button>
-                {chatData?.isGroup && (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <MoreHorizontal className="h-5 w-5" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                        {chatData?.isGroup && (
                             <DropdownMenuItem onClick={handleOpenGroupInfo}>
                                 <UsersIcon className="mr-2 h-4 w-4" />
                                 <span>Group Info</span>
                             </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                )}
+                        )}
+                        <DropdownMenuItem onClick={() => setSelectionMode(true)}>
+                            <ClipboardCheck className="mr-2 h-4 w-4" />
+                            <span>Select Messages</span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
         </div>
-        {chatData?.pinnedMessage && (
+        {chatData?.pinnedMessage && !selectionMode && (
             <div className='p-2 px-4 bg-background border-b flex items-center gap-2'>
                 <Pin className='h-4 w-4 text-primary shrink-0' />
                 <div className='flex-1 text-xs truncate'>
@@ -892,67 +951,87 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                         sender={sender}
                         onSaveEdit={handleSaveEdit}
                         onPinMessage={handlePinMessage}
+                        selectionMode={selectionMode}
+                        isSelected={selectedMessages.includes(message.id)}
+                        onToggleSelection={handleToggleSelection}
                     />
                     );
                 })}
                 </div>
              )}
           </ScrollArea>
-          <div className="border-t p-4 bg-background/80 backdrop-blur-sm z-10">
-            {replyingTo && (
-                <div className="flex items-center justify-between bg-muted p-2 rounded-t-md text-sm">
-                    <div className="flex-1 overflow-hidden">
-                        <p className="font-semibold text-primary">Replying to {replyingTo.senderId === currentUser.uid ? 'yourself' : chatData?.userInfos.find(u=>u.uid === replyingTo.senderId)?.displayName}</p>
-                        <p className="truncate text-muted-foreground">{replyingTo.text || replyingTo.type}</p>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyingTo(null)}>
-                        <X className="h-4 w-4" />
-                    </Button>
-                </div>
-            )}
-            {uploading && <Progress value={undefined} className="mb-2 h-1" />}
-            <form
-                onSubmit={handleSendMessage}
-                className={cn(
-                    "flex items-start gap-2",
-                    replyingTo && "mt-2"
-                )}
-            >
-                <Input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  className="hidden"
-                  disabled={uploading}
-                />
-                <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading} className='shrink-0'>
-                    <Paperclip className="h-5 w-5" />
+          {selectionMode ? (
+             <div className="flex items-center justify-between border-t p-2 bg-background/80 backdrop-blur-sm z-10">
+                <Button variant="ghost" onClick={handleCancelSelection}>
+                    Cancel
                 </Button>
-
-                <Textarea
-                    ref={inputRef}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage(e);
-                        }
-                    }}
-                    placeholder={'Type a message...'}
-                    autoComplete="off"
-                    disabled={uploading}
-                    className="bg-background/80"
-                    maxRows={5}
-                />
-                <Button
-                    type="submit"
-                    size="icon"
-                    disabled={uploading}
-                    className='shrink-0'
+                <p className='text-sm font-medium'>{selectedMessages.length} selected</p>
+                <Button 
+                    variant="destructive" 
+                    onClick={handleDeleteSelected}
+                    disabled={selectedMessages.length === 0}
                 >
-                    <Send className="h-5 w-5" />
+                    <Trash className="mr-2 h-4 w-4" />
+                    Delete
                 </Button>
-            </form>
             </div>
+          ) : (
+            <div className="border-t p-4 bg-background/80 backdrop-blur-sm z-10">
+                {replyingTo && (
+                    <div className="flex items-center justify-between bg-muted p-2 rounded-t-md text-sm">
+                        <div className="flex-1 overflow-hidden">
+                            <p className="font-semibold text-primary">Replying to {replyingTo.senderId === currentUser.uid ? 'yourself' : chatData?.userInfos.find(u=>u.uid === replyingTo.senderId)?.displayName}</p>
+                            <p className="truncate text-muted-foreground">{replyingTo.text || replyingTo.type}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setReplyingTo(null)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                )}
+                {uploading && <Progress value={undefined} className="mb-2 h-1" />}
+                <form
+                    onSubmit={handleSendMessage}
+                    className={cn(
+                        "flex items-start gap-2",
+                        replyingTo && "mt-2"
+                    )}
+                >
+                    <Input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={uploading}
+                    />
+                    <Button type="button" onClick={() => fileInputRef.current?.click()} size="icon" variant="ghost" disabled={uploading} className='shrink-0'>
+                        <Paperclip className="h-5 w-5" />
+                    </Button>
+
+                    <Textarea
+                        ref={inputRef}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage(e);
+                            }
+                        }}
+                        placeholder={'Type a message...'}
+                        autoComplete="off"
+                        disabled={uploading}
+                        className="bg-background/80"
+                        maxRows={5}
+                    />
+                    <Button
+                        type="submit"
+                        size="icon"
+                        disabled={uploading}
+                        className='shrink-0'
+                    >
+                        <Send className="h-5 w-5" />
+                    </Button>
+                </form>
+            </div>
+          )}
         </>
       ) : (
         <div className="flex h-full flex-col items-center justify-center bg-muted/30 z-10">
@@ -973,3 +1052,5 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
+    
