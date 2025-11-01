@@ -29,12 +29,11 @@ export default function FeedbackView({ currentUser, onBack }: FeedbackViewProps)
     setIsLoading(true);
 
     try {
-        const result = await submitFeedback(text);
-        console.log('Feedback analysis:', result);
+        await submitFeedback(text);
         setSubmitted(true);
         toast({
             title: 'Feedback Submitted!',
-            description: `Category: ${result.category}, Sentiment: ${result.sentiment}. Thanks for your input!`,
+            description: "Thanks for your input!",
         });
 
     } catch (error) {
@@ -70,14 +69,14 @@ export default function FeedbackView({ currentUser, onBack }: FeedbackViewProps)
         <Card className='w-full max-w-lg glass-card'>
             <CardHeader>
                 <CardTitle className='flex items-center justify-center gap-2 text-xl'>
-                    <Bot className='h-6 w-6' /> AI-Powered Feedback Analysis
+                    Submit Feedback
                 </CardTitle>
             </CardHeader>
             <CardContent>
                 {submitted ? (
                     <div className='text-center py-8'>
                         <h3 className='text-lg font-semibold mb-2'>Thank You!</h3>
-                        <p className='text-muted-foreground mb-4'>Your feedback has been received and analyzed.</p>
+                        <p className='text-muted-foreground mb-4'>Your feedback has been received.</p>
                         <Button onClick={() => {
                             setSubmitted(false);
                             if (inputRef.current) inputRef.current.value = '';
