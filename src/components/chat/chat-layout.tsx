@@ -66,7 +66,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
   useEffect(() => {
     const fetchInitialChat = async () => {
-        if (initialChatId && !selectedChat) {
+        if (initialChatId) {
             const chatRef = doc(db, 'chats', initialChatId);
             const chatSnap = await getDoc(chatRef);
             if (chatSnap.exists()) {
@@ -75,7 +75,8 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
         }
     };
     fetchInitialChat();
-  }, [initialChatId, selectedChat, handleSelectChat]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialChatId]);
 
 
   useEffect(() => {
