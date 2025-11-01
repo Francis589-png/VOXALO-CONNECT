@@ -38,11 +38,9 @@ export default function FirebaseMessagingProvider({ children }: { children: Reac
         const unsubscribe = onMessage(messaging, (payload: MessagePayload) => {
             console.log('Foreground message received.', payload);
 
-            // The payload for foreground messages is in `notification`.
-            // The `data` payload is also available.
-            if (payload && payload.notification) {
-                const { title, body } = payload.notification;
-                const chatId = payload.data?.chatId;
+            // With a data-only payload, the notification info is in payload.data
+            if (payload && payload.data) {
+                const { title, body, chatId } = payload.data;
                 const currentChatId = searchParams.get('chatId');
 
                 // Don't show notification if user is already in the chat and window is focused
