@@ -64,3 +64,58 @@ exports.sendChatNotification = functions.firestore
       }
     }
   });
+
+exports.sendJttNewsNotification = functions.firestore
+  .document('jtt-news/{postId}')
+  .onCreate(async (snap) => {
+    const post = snap.data();
+    if (!post) {
+      return;
+    }
+
+    const payload = {
+      notification: {
+        title: `New JTT News from ${post.authorName}`,
+        body: post.text,
+        icon: post.authorPhotoURL || '/favicon.ico',
+        click_action: `/jtt-news`
+      },
+      data: {
+        title: `New JTT News from ${post.authorName}`,
+        body: post.text,
+        chatId: 'jtt-news' // Not a real chat, but helps identify the notification type
+      }
+    };
+
+    const usersSnapshot = await admin.firestore().collection('users').get();
+    const tokens: string[] = [];
+    usersSnapshot.forEach(userDoc => {
+      const userData = userDoc.data();
+      // Don't send notification to the author of the post
+      if (userData.fcmToken && userData.uid !== post.authorId) {
+        tokens.push(userData.fcmToken);
+      }
+    });
+
+    if (tokens.length > 0) {
+        try {
+          const response = await admin.messaging().sendToDevice(tokens, payload);
+          // Clean up invalid tokens
+          response.results.forEach((result, index) => {
+              const error = result.error;
+              if (error) {
+                  console.error('Failure sending notification to', tokens[index], error);
+                  if (error.code === 'messaging/invalid-registration-token' ||
+                      error.code === 'messaging/registration-token-not-registered') {
+                      const userSnapshot = usersSnapshot.docs.find(doc => doc.data().fcmToken === tokens[index]);
+                      if(userSnapshot) {
+                          userSnapshot.ref.update({ fcmToken: null });
+                      }
+                  }
+              }
+          });
+        } catch (error) {
+            console.error('Error sending JTT news notifications:', error);
+        }
+    }
+  });
