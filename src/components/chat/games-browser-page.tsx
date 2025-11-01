@@ -14,10 +14,9 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { AlertTriangle, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
-type GameSource = 'freetogame' | 'gamemonetize' | 'crazygames';
+type GameSource = 'freetogame' | 'gamemonetize';
 
 async function getGames(source: GameSource): Promise<any[]> {
-    if (source === 'crazygames') return [];
     try {
         const response = await fetch(`/api/${source === 'freetogame' ? 'games' : 'gamemonetize'}`);
         if (!response.ok) {
@@ -106,12 +105,6 @@ export default function GamesBrowserPage() {
     const [source, setSource] = useState<GameSource>('freetogame');
 
     useEffect(() => {
-        if (source === 'crazygames') {
-            setLoading(false);
-            setError(null);
-            setGames([]);
-            return;
-        };
         const fetchGames = async () => {
             setLoading(true);
             setError(null);
@@ -149,19 +142,6 @@ export default function GamesBrowserPage() {
                     </Alert>
                 </div>
             )
-        }
-        
-        if (source === 'crazygames') {
-            return (
-                <div className="h-full w-full">
-                     <iframe
-                        src="https://www.crazygames.com/"
-                        title="CrazyGames"
-                        className="h-full w-full border-0"
-                        allow="fullscreen; payment; autoplay; execution-while-not-rendered; cross-origin-isolated"
-                    />
-                </div>
-            );
         }
 
         const validGames = games.filter(game => {
@@ -203,7 +183,6 @@ export default function GamesBrowserPage() {
                     <SelectContent>
                         <SelectItem value="freetogame">FreeToGame</SelectItem>
                         <SelectItem value="gamemonetize">GameMonetize</SelectItem>
-                        <SelectItem value="crazygames">CrazyGames</SelectItem>
                     </SelectContent>
                 </Select>
             </div>
