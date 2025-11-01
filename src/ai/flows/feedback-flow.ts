@@ -9,9 +9,9 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { db } from '@/lib/firebase-admin';
 import { z } from 'genkit';
-import { Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+
 
 // 1. Define Input and Output Schemas with Zod
 const FeedbackInputSchema = z.string().describe('The raw text feedback from the user.');
@@ -61,6 +61,9 @@ const feedbackFlow = ai.defineFlow(
     if (!analysis) {
         throw new Error('Failed to analyze feedback.');
     }
+
+    // Get the Firestore instance from the Genkit-initialized Firebase app
+    const db = getFirestore();
 
     // Save the original feedback and the AI analysis to Firestore
     await db.collection('feedback').add({
