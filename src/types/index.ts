@@ -25,19 +25,22 @@ export interface Message {
   readBy?: string[];
   deletedFor?: string[];
   reactions?: { [emoji: string]: string[] };
-  type: 'text' | 'image' | 'file';
+  type: 'text' | 'image' | 'file' | 'audio';
   imageURL?: string;
   fileURL?: string;
   fileName?: string;
   fileSize?: number;
+  audioURL?: string;
+  audioDuration?: number;
   replyTo?: {
     messageId: string;
     senderId: string;
     senderName: string;
     text: string | null;
-    type: 'text' | 'image' | 'file';
+    type: 'text' | 'image' | 'file' | 'audio';
     imageURL: string | null;
     fileName: string | null;
+    audioURL: string | null;
   };
   editedAt?: Timestamp;
   role?: 'user' | 'model';

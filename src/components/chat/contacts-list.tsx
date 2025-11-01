@@ -11,7 +11,7 @@ import { Badge } from '../ui/badge';
 import { collection, onSnapshot, query, where, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useEffect, useMemo, useState } from 'react';
-import { Users, File, Image as ImageIcon } from 'lucide-react';
+import { Users, File, Image as ImageIcon, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getMessagePreview } from '@/lib/utils';
 
@@ -65,6 +65,21 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
         return `${prefix}${getMessagePreview(lastMessage as Message)}`;
     }
 
+    const getLastMessageIcon = () => {
+        const lastMessage = chat.lastMessage;
+        if (!lastMessage) return null;
+        switch (lastMessage.type) {
+            case 'image':
+                return <ImageIcon className="h-3 w-3" />;
+            case 'file':
+                return <File className="h-3 w-3" />;
+            case 'audio':
+                return <Mic className="h-3 w-3" />;
+            default:
+                return null;
+        }
+    }
+
 
     return (
         <button
@@ -95,7 +110,8 @@ function ContactItem({ chat, isSelected, onSelectChat, currentUser }: { chat: Ch
                     )}
                 </div>
                 <div className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
-                    {getLastMessagePreviewText()}
+                    {getLastMessageIcon()}
+                    <span>{getLastMessagePreviewText()}</span>
                 </div>
             </div>
         </button>
