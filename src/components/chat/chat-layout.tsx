@@ -3,7 +3,7 @@
 'use client';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
 import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles, Newspaper, MessageSquareQuote } from 'lucide-react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
 import type { Chat, User } from '@/types';
@@ -66,7 +66,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
   useEffect(() => {
     const fetchInitialChat = async () => {
-        if (initialChatId && !selectedChat) {
+        if (initialChatId) {
             const chatRef = doc(db, 'chats', initialChatId);
             const chatSnap = await getDoc(chatRef);
             if (chatSnap.exists()) {
@@ -76,7 +76,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
     };
     fetchInitialChat();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialChatId, selectedChat]);
+  }, [initialChatId]);
 
 
   useEffect(() => {
