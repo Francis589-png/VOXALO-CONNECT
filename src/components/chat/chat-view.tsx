@@ -1,3 +1,4 @@
+
 'use client';
 import {
   addDoc,
@@ -33,6 +34,8 @@ import {
   Pencil,
   Users as UsersIcon,
   Search,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -43,7 +46,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { db } from '@/lib/firebase';
 import type { Message, User as AppUser, Chat } from '@/types';
-import { cn } from '@/lib/utils';
+import { cn, getMessagePreview } from '@/lib/utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { useFriends } from '../providers/friends-provider';
 import {
@@ -58,6 +61,8 @@ import { Progress } from '../ui/progress';
 import UserProfileCard from './user-profile-card';
 import { useGroupInfo } from '../providers/group-info-provider';
 import { Textarea } from '../ui/textarea';
+import { pinMessage, unpinMessage } from '@/lib/actions/chat-actions';
+import { useToast } from '@/hooks/use-toast';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -150,6 +155,7 @@ function MessageBubble({
   chat,
   sender,
   onSaveEdit,
+  onPinMessage,
 }: {
   message: Message;
   isOwnMessage: boolean;
@@ -161,6 +167,7 @@ function MessageBubble({
   chat: Chat;
   sender: AppUser | undefined;
   onSaveEdit: (messageId: string, newText: string) => void;
+  onPinMessage: (message: Message) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text || '');
@@ -251,12 +258,15 @@ function MessageBubble({
   if (message.deletedFor?.includes(currentUser.uid)) {
     return null;
   }
+  
+  const isPinned = chat.pinnedMessage?.id === message.id;
 
   return (
     <div
       className={cn(
         'group relative flex items-start gap-2',
-        isOwnMessage ? 'flex-row-reverse' : 'flex-row'
+        isOwnMessage ? 'flex-row-reverse' : 'flex-row',
+        isPinned && 'bg-primary/5 rounded-md p-2 -mx-2'
       )}
     >
        {(!isOwnMessage && chat.isGroup) && (
@@ -359,6 +369,10 @@ function MessageBubble({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align={isOwnMessage ? 'end' : 'start'}>
+                <DropdownMenuItem onClick={() => onPinMessage(message)}>
+                    <Pin className="mr-2 h-4 w-4" />
+                    <span>Pin</span>
+                </DropdownMenuItem>
                 {isOwnMessage && message.type === 'text' && (
                   <DropdownMenuItem onClick={() => setIsEditing(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
@@ -393,6 +407,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const deliveredSoundRef = useRef<HTMLAudioElement | null>(null);
   const previousMessagesRef = useRef<Message[]>([]);
+  const { toast } = useToast();
 
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
@@ -672,6 +687,27 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         editedAt: serverTimestamp(),
     });
   };
+  
+  const handlePinMessage = async (message: Message) => {
+    if (!chatId) return;
+    try {
+        await pinMessage(chatId, message);
+        toast({ title: 'Message Pinned' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'Failed to pin message.', variant: 'destructive' });
+    }
+  }
+
+  const handleUnpinMessage = async () => {
+    if (!chatId) return;
+    try {
+        await unpinMessage(chatId);
+        toast({ title: 'Message Unpinned' });
+    } catch (e) {
+        toast({ title: 'Error', description: 'Failed to unpin message.', variant: 'destructive' });
+    }
+  }
+
 
   const getChatName = () => {
     if (!chatData) return '';
@@ -757,60 +793,74 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
             onOpenChange={setIsProfileCardOpen}
         />
       )}
-      <div className="flex items-center gap-4 border-b p-4 bg-background/80 backdrop-blur-sm z-10">
-        {onBack && (
-            <Button onClick={onBack} variant="ghost" size="icon" className='md:hidden'>
-                <ArrowLeft className="h-5 w-5" />
-            </Button>
+      <div className="flex flex-col border-b bg-background/80 backdrop-blur-sm z-10">
+        <div className="flex items-center gap-4 p-4">
+            {onBack && (
+                <Button onClick={onBack} variant="ghost" size="icon" className='md:hidden'>
+                    <ArrowLeft className="h-5 w-5" />
+                </Button>
+            )}
+            <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
+                <Avatar className="h-10 w-10">
+                    <AvatarImage
+                        src={getChatPhoto() || undefined}
+                        alt={getChatName()!}
+                    />
+                    <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
+                </Avatar>
+                {!chatData?.isGroup && otherUser?.status === 'online' && (
+                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
+                )}
+            </button>
+            <div className='flex-1'>
+                {isSearching ? (
+                    <Input 
+                        autoFocus
+                        defaultValue={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search messages..."
+                        className="h-9 bg-background/80"
+                    />
+                ) : (
+                    <>
+                    <h2 className="text-lg font-semibold">{getChatName()}</h2>
+                    <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
+                    </>
+                )}
+            </div>
+            <div className='flex items-center gap-2'>
+                <Button variant="ghost" size="icon" onClick={() => setIsSearching(prev => !prev)}>
+                    {isSearching ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                </Button>
+                {chatData?.isGroup && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-5 w-5" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={handleOpenGroupInfo}>
+                                <UsersIcon className="mr-2 h-4 w-4" />
+                                <span>Group Info</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
+            </div>
+        </div>
+        {chatData?.pinnedMessage && (
+            <div className='p-2 px-4 bg-background border-b flex items-center gap-2'>
+                <Pin className='h-4 w-4 text-primary shrink-0' />
+                <div className='flex-1 text-xs truncate'>
+                    <p className='font-semibold text-primary'>{chatData.pinnedMessage.senderId === currentUser.uid ? 'You' : chatData.userInfos.find(u => u.uid === chatData.pinnedMessage?.senderId)?.displayName}</p>
+                    <p className='text-muted-foreground truncate'>{getMessagePreview(chatData.pinnedMessage)}</p>
+                </div>
+                <Button variant='ghost' size='icon' className='h-7 w-7' onClick={handleUnpinMessage}>
+                    <X className='h-4 w-4' />
+                </Button>
+            </div>
         )}
-        <button className='relative' onClick={() => !chatData?.isGroup && otherUser && handleOpenProfile(otherUser)}>
-            <Avatar className="h-10 w-10">
-                <AvatarImage
-                    src={getChatPhoto() || undefined}
-                    alt={getChatName()!}
-                />
-                <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
-            </Avatar>
-            {!chatData?.isGroup && otherUser?.status === 'online' && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-background" />
-            )}
-        </button>
-        <div className='flex-1'>
-            {isSearching ? (
-                 <Input 
-                    autoFocus
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search messages..."
-                    className="h-9 bg-background/80"
-                 />
-            ) : (
-                <>
-                 <h2 className="text-lg font-semibold">{getChatName()}</h2>
-                 <p className="text-sm text-muted-foreground">{getChatSubtext()}</p>
-                </>
-            )}
-        </div>
-        <div className='flex items-center gap-2'>
-            <Button variant="ghost" size="icon" onClick={() => setIsSearching(prev => !prev)}>
-                {isSearching ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
-            </Button>
-            {chatData?.isGroup && (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-5 w-5" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onClick={handleOpenGroupInfo}>
-                            <UsersIcon className="mr-2 h-4 w-4" />
-                            <span>Group Info</span>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            )}
-        </div>
       </div>
       {canChat ? (
         <>
@@ -839,6 +889,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                         chat={chatData!}
                         sender={sender}
                         onSaveEdit={handleSaveEdit}
+                        onPinMessage={handlePinMessage}
                     />
                     );
                 })}

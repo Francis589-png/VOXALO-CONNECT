@@ -18,6 +18,17 @@ export interface User {
   theme?: 'light' | 'dark' | 'system';
 }
 
+export interface ReplyMessage {
+  messageId: string;
+  senderId: string;
+  senderName: string;
+  text: string | null;
+  type: 'text' | 'image' | 'file';
+  imageURL: string | null;
+  fileName: string | null;
+}
+
+
 export interface Message {
   id: string;
   text?: string;
@@ -31,15 +42,7 @@ export interface Message {
   fileURL?: string;
   fileName?: string;
   fileSize?: number;
-  replyTo?: {
-    messageId: string;
-    senderId: string;
-    senderName: string;
-    text: string | null;
-    type: 'text' | 'image' | 'file';
-    imageURL: string | null;
-    fileName: string | null;
-  };
+  replyTo?: ReplyMessage;
   editedAt?: Timestamp;
   role?: 'user' | 'model';
   content?: { text: string }[];
@@ -55,6 +58,7 @@ export interface Chat {
   photoURL?: string;
   createdAt?: Timestamp;
   createdBy?: string;
+  pinnedMessage?: Message | null;
 }
 
 export interface FriendRequest {
