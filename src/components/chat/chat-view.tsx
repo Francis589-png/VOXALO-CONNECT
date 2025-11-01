@@ -143,34 +143,64 @@ function ReadReceipt({
   return <ReadIcon className={`h-4 w-4 ${iconColor}`} />;
 }
 
-function AudioPlayer({ src }: { src: string }) {
+function AudioPlayer({ src }: { src: string | Blob }) {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const [audioSrc, setAudioSrc] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+        let objectUrl: string | undefined;
+
+        if (src instanceof Blob) {
+            objectUrl = URL.createObjectURL(src);
+            setAudioSrc(objectUrl);
+        } else if (typeof src === 'string') {
+            setAudioSrc(src);
+        }
+
+        return () => {
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+            }
+        };
+    }, [src]);
 
     const togglePlayPause = () => {
         if (audioRef.current) {
             if (isPlaying) {
                 audioRef.current.pause();
             } else {
-                audioRef.current.play();
+                audioRef.current.play().catch(e => console.error("Audio play failed:", e));
             }
-            setIsPlaying(!isPlaying);
         }
     };
 
-    const handleTimeUpdate = () => {
-        if (audioRef.current) {
-            setCurrentTime(audioRef.current.currentTime);
-        }
-    };
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (!audio) return;
 
-    const handleLoadedMetadata = () => {
-        if (audioRef.current) {
-            setDuration(audioRef.current.duration);
-        }
-    };
+        const handlePlay = () => setIsPlaying(true);
+        const handlePause = () => setIsPlaying(false);
+        const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+        const handleLoadedMetadata = () => setDuration(audio.duration);
+        const handleEnded = () => setIsPlaying(false);
+
+        audio.addEventListener('play', handlePlay);
+        audio.addEventListener('pause', handlePause);
+        audio.addEventListener('timeupdate', handleTimeUpdate);
+        audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.addEventListener('ended', handleEnded);
+
+        return () => {
+            audio.removeEventListener('play', handlePlay);
+            audio.removeEventListener('pause', handlePause);
+            audio.removeEventListener('timeupdate', handleTimeUpdate);
+            audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.removeEventListener('ended', handleEnded);
+        };
+    }, [audioRef]);
     
     const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (audioRef.current) {
@@ -179,6 +209,7 @@ function AudioPlayer({ src }: { src: string }) {
     };
     
     const formatTime = (time: number) => {
+        if (isNaN(time) || time === Infinity) return '0:00';
         const minutes = Math.floor(time / 60);
         const seconds = Math.floor(time % 60).toString().padStart(2, '0');
         return `${minutes}:${seconds}`;
@@ -186,16 +217,7 @@ function AudioPlayer({ src }: { src: string }) {
 
     return (
         <div className="flex items-center gap-2 w-64">
-            <audio
-                ref={audioRef}
-                src={src}
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-                onEnded={() => setIsPlaying(false)}
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                className="hidden"
-            />
+            <audio ref={audioRef} src={audioSrc} preload="metadata" className="hidden" />
             <Button onClick={togglePlayPause} size="icon" variant="ghost" className='h-9 w-9 shrink-0'>
                 {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
             </Button>
@@ -498,7 +520,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType: 'audio/mp4' });
+            mediaRecorderRef.current = new MediaRecorder(stream);
             mediaRecorderRef.current.start();
             setIsRecording(true);
 
@@ -1063,4 +1085,5 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
+
 
