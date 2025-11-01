@@ -17,6 +17,8 @@ export interface User {
   bio?: string;
   theme?: 'light' | 'dark' | 'system';
   blockedUsers?: string[];
+  isVerified?: boolean;
+  isBanned?: boolean;
 }
 
 export interface ReplyMessage {

@@ -2,7 +2,7 @@
 
 'use client';
 import { collection, onSnapshot, query, where, doc, getDoc } from 'firebase/firestore';
-import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles, Newspaper } from 'lucide-react';
+import { LogOut, Search as SearchIcon, User as UserIcon, Users, Swords, Clapperboard, Sparkles, Newspaper, MessageSquareQuote } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { auth, db } from '@/lib/firebase';
@@ -35,6 +35,7 @@ import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
 import { Badge } from '../ui/badge';
 import AssistantView from './assistant-view';
 import JttNewsPage from '@/app/jtt-news/page';
+import FeedbackView from './feedback-view';
 
 
 interface ChatLayoutProps {
@@ -42,13 +43,15 @@ interface ChatLayoutProps {
   initialChatId?: string | null;
 }
 
+type MainView = 'chat' | 'assistant' | 'feedback';
+
 export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
   const [search, setSearch] = useState('');
   const isMobile = useIsMobile();
   const totalUnreadCount = useTotalUnreadCount(currentUser.uid);
-  const [isAssistantSelected, setIsAssistantSelected] = useState(false);
+  const [mainView, setMainView] = useState<MainView>('chat');
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default' && currentUser.uid) {
@@ -58,7 +61,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
   const handleSelectChat = useCallback((chat: Chat) => {
     setSelectedChat(chat);
-    setIsAssistantSelected(false);
+    setMainView('chat');
   }, []);
 
   useEffect(() => {
@@ -88,15 +91,39 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
   
   const handleSelectAssistant = () => {
     setSelectedChat(null);
-    setIsAssistantSelected(true);
+    setMainView('assistant');
+  };
+
+  const handleSelectFeedback = () => {
+    setSelectedChat(null);
+    setMainView('feedback');
   };
   
   const handleBack = () => {
     setSelectedChat(null);
-    setIsAssistantSelected(false);
+    setMainView('chat');
   };
 
-  const isChatVisible = isAssistantSelected || selectedChat;
+  const isChatVisible = mainView !== 'chat' || selectedChat;
+
+  const renderMainView = () => {
+    switch (mainView) {
+      case 'assistant':
+        return <AssistantView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />;
+      case 'feedback':
+        return <FeedbackView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />;
+      case 'chat':
+      default:
+        return (
+          <ChatView 
+              currentUser={currentUser} 
+              selectedChat={selectedChat}
+              onBack={isMobile ? handleBack : undefined}
+              onChatDeleted={() => setSelectedChat(null)}
+          />
+        );
+    }
+  };
 
   return (
     <div className="flex h-screen w-full">
@@ -168,6 +195,10 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
               <TabsTrigger value="explore">
                 Explore
               </TabsTrigger>
+              <TabsTrigger value="feedback">
+                <MessageSquareQuote className='h-4 w-4 mr-2' />
+                Feedback
+              </TabsTrigger>
             </TabsList>
           </div>
           <div className="p-4 pt-0">
@@ -187,7 +218,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
                 onClick={handleSelectAssistant}
                 className={cn(
                     'flex items-center gap-3 p-4 text-left w-full transition-colors',
-                    isAssistantSelected ? 'bg-accent' : 'hover:bg-accent/50'
+                    mainView === 'assistant' ? 'bg-accent' : 'hover:bg-accent/50'
                 )}
             >
                 <Avatar className="h-10 w-10">
@@ -228,19 +259,19 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />
           </TabsContent>
+           <TabsContent value="feedback" className="flex-1 overflow-y-auto mt-0">
+             <div className="p-4 text-center text-sm text-muted-foreground">
+                <p className="mb-2">Have a bug report or a feature request?</p>
+                 <Button onClick={handleSelectFeedback}>
+                    <MessageSquareQuote className='h-4 w-4 mr-2'/>
+                    Give Feedback
+                </Button>
+             </div>
+          </TabsContent>
         </Tabs>
       </div>
       <div className={cn("flex-1", (!isMobile || isChatVisible) ? "flex" : "hidden")}>
-        {isAssistantSelected ? (
-          <AssistantView currentUser={currentUser} onBack={isMobile ? handleBack : undefined} />
-        ) : (
-          <ChatView 
-              currentUser={currentUser} 
-              selectedChat={selectedChat}
-              onBack={isMobile ? handleBack : undefined}
-              onChatDeleted={() => setSelectedChat(null)}
-          />
-        )}
+        {renderMainView()}
       </div>
     </div>
   );
