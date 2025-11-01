@@ -35,6 +35,7 @@ import { useTotalUnreadCount } from '@/hooks/use-total-unread-count';
 import { Badge } from '../ui/badge';
 import JttNewsPage from '@/app/jtt-news/page';
 import FeedbackView from './feedback-view';
+import { FriendsProvider } from '../providers/friends-provider';
 
 
 interface ChatLayoutProps {
@@ -229,7 +230,9 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
             <VideoBrowserPage />
           </TabsContent>
           <TabsContent value="news" className="flex-1 overflow-y-auto mt-0 p-0">
-             <JttNewsPage />
+            <FriendsProvider>
+              <JttNewsPage />
+            </FriendsProvider>
           </TabsContent>
           <TabsContent value="explore" className="flex-1 overflow-y-auto mt-0">
             <ExplorePage search={search} />
