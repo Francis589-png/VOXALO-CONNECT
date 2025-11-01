@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useFriends } from '@/components/providers/friends-provider';
 import type { User } from '@/types';
