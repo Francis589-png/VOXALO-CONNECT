@@ -1,4 +1,3 @@
-
 'use client';
 import {
   addDoc,
@@ -95,10 +94,10 @@ function ReadReceipt({
 
     const ReadIcon = sent ? Check : CheckCheck;
     const iconColor = allRead 
-      ? 'text-green-500' 
-      : partiallyRead 
       ? 'text-blue-500' 
-      : 'text-red-500';
+      : partiallyRead 
+      ? 'text-gray-500' 
+      : 'text-muted-foreground/80';
     
     const readers = userInfos.filter(u => otherUsersWhoRead.includes(u.uid));
     return (
@@ -135,7 +134,7 @@ function ReadReceipt({
   // 1-on-1 chat logic
   const isReadByOther = otherUsersInChat.length > 0 && otherUsersWhoRead.length > 0;
   const ReadIcon = isReadByOther ? CheckCheck : Check;
-  const iconColor = isReadByOther ? 'text-green-500' : 'text-red-500';
+  const iconColor = isReadByOther ? 'text-blue-500' : 'text-muted-foreground/80';
 
   return <ReadIcon className={`h-4 w-4 ${iconColor}`} />;
 }
@@ -392,6 +391,8 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const deliveredSoundRef = useRef<HTMLAudioElement | null>(null);
+  const previousMessagesRef = useRef<Message[]>([]);
 
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
@@ -409,6 +410,10 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
   
   const chatId = selectedChat?.id;
+
+  if (typeof window !== 'undefined' && !deliveredSoundRef.current) {
+    deliveredSoundRef.current = new Audio('/notification.mp3');
+  }
 
 
   useEffect(() => {
@@ -473,6 +478,21 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
       setMessages(messagesData);
 
+      // Delivered/Read sound logic
+      if (currentUserData?.messageSentSoundEnabled && previousMessagesRef.current.length > 0 && deliveredSoundRef.current) {
+        messagesData.forEach(newMessage => {
+            if (newMessage.senderId === currentUser.uid) {
+                const oldMessage = previousMessagesRef.current.find(m => m.id === newMessage.id);
+                const oldReadByCount = oldMessage?.readBy?.length || 0;
+                const newReadByCount = newMessage.readBy?.length || 0;
+                if (newReadByCount > oldReadByCount && newReadByCount > 1) { // >1 because sender is in readBy
+                    deliveredSoundRef.current?.play().catch(e => console.error("Error playing delivered sound:", e));
+                }
+            }
+        })
+      }
+      previousMessagesRef.current = messagesData;
+
       messagesData.forEach((message) => {
         if (
           message.senderId !== currentUser.uid &&
@@ -494,7 +514,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     });
 
     return () => unsubscribe();
-  }, [chatId, currentUser.uid, chatData?.users]);
+  }, [chatId, currentUser.uid, chatData?.users, currentUserData?.messageSentSoundEnabled]);
 
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -558,15 +578,17 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputRef.current?.value.trim() || !chatData) return;
+    const text = inputRef.current?.value;
+    if (!text?.trim() || !chatData) return;
 
-    const text = inputRef.current.value;
-    inputRef.current.value = '';
-    inputRef.current.focus();
-
+    if (inputRef.current) {
+        inputRef.current.value = '';
+        inputRef.current.focus();
+    }
+    
     const messageData = {
         type: 'text' as const,
-        text,
+        text: text,
         senderId: currentUser.uid,
         timestamp: serverTimestamp(),
         readBy: [currentUser.uid],

@@ -33,6 +33,7 @@ const formSchema = z.object({
   statusMessage: z.string().max(50, { message: 'Status must be 50 characters or less.' }).optional(),
   readReceiptsEnabled: z.boolean(),
   notificationSounds: z.boolean(),
+  messageSentSoundEnabled: z.boolean(),
   bio: z.string().max(160, { message: 'Bio cannot be longer than 160 characters.' }).optional(),
   theme: z.string(),
   photo: z.instanceof(File).optional(),
@@ -61,6 +62,7 @@ export default function ProfilePage() {
       statusMessage: '',
       readReceiptsEnabled: true,
       notificationSounds: false,
+      messageSentSoundEnabled: true,
       bio: '',
       theme: 'system',
     },
@@ -78,6 +80,7 @@ export default function ProfilePage() {
           if (userData) {
             form.setValue('readReceiptsEnabled', userData.readReceiptsEnabled ?? true);
             form.setValue('notificationSounds', userData.notificationSounds ?? false);
+            form.setValue('messageSentSoundEnabled', userData.messageSentSoundEnabled ?? true);
             form.setValue('bio', userData.bio || '');
             form.setValue('statusMessage', userData.statusMessage || '');
             form.setValue('theme', userData.theme || 'system');
@@ -124,6 +127,7 @@ export default function ProfilePage() {
         statusMessage: values.statusMessage,
         readReceiptsEnabled: values.readReceiptsEnabled,
         notificationSounds: values.notificationSounds,
+        messageSentSoundEnabled: values.messageSentSoundEnabled,
         bio: values.bio,
         theme: values.theme,
       });
@@ -297,6 +301,27 @@ export default function ProfilePage() {
                     />
                     
                     <Separator />
+
+                    <FormField
+                        control={form.control}
+                        name="messageSentSoundEnabled"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-base">Message Sent Sound</FormLabel>
+                                    <FormDescription>
+                                        Play a sound when your message is delivered.
+                                    </FormDescription>
+                                </div>
+                                <FormControl>
+                                    <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                    />
                     
                     <FormField
                         control={form.control}

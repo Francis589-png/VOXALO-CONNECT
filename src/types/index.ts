@@ -13,6 +13,7 @@ export interface User {
   fcmToken?: string;
   readReceiptsEnabled?: boolean;
   notificationSounds?: boolean;
+  messageSentSoundEnabled?: boolean;
   bio?: string;
   theme?: 'light' | 'dark' | 'system';
 }
