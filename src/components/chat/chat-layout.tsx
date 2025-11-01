@@ -144,7 +144,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
         <Tabs defaultValue="contacts" className="flex flex-col flex-1">
           <div className='p-4'>
-            <TabsList className="w-full grid grid-cols-5 gap-2">
+            <TabsList className="w-full grid grid-cols-3 gap-2 h-auto">
               <TabsTrigger value="contacts" className='relative'>
                 Contacts
                 {totalUnreadCount > 0 && (
@@ -161,7 +161,7 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
                 <Clapperboard className='h-4 w-4 mr-2'/>
                 VX Movies
               </TabsTrigger>
-              <TabsTrigger value="news">
+              <TabsTrigger value="news" className="col-start-1">
                   <Newspaper className='h-4 w-4 mr-2'/>
                   JTT News
               </TabsTrigger>
