@@ -39,6 +39,8 @@ interface UserProfileCardProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+const OFFICIAL_EMAIL = 'jusufrancis08@gmail.com';
+
 function ProfileContent({ user }: { user: User }) {
   const { user: currentUser } = useAuth();
   const { toast } = useToast();
@@ -62,6 +64,7 @@ function ProfileContent({ user }: { user: User }) {
   
   const status = getFriendshipStatus(user.uid);
   const incomingRequest = incomingRequests.find(req => req.senderId === user.uid);
+  const isOfficial = user.email === OFFICIAL_EMAIL;
 
   const handleBlock = async () => {
     const currentUserRef = doc(db, 'users', currentUser.uid);
@@ -80,6 +83,9 @@ function ProfileContent({ user }: { user: User }) {
   };
 
   const renderFriendshipAction = () => {
+    if (isOfficial) {
+      return null;
+    }
     if (isBlocked) {
       return <Button variant="outline" onClick={handleUnblock}>Unblock</Button>;
     }
@@ -131,8 +137,8 @@ function ProfileContent({ user }: { user: User }) {
           <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
         </Avatar>
         <div className='flex items-center gap-2'>
-            <h2 className='text-xl font-semibold'>{user.displayName}</h2>
-            {user.isVerified && <Icons.verified className="h-5 w-5" />}
+            <h2 className='text-xl font-semibold'>{isOfficial ? 'VoxaLo Connect' : user.displayName}</h2>
+            {(user.isVerified || isOfficial) && <Icons.verified className="h-5 w-5" />}
         </div>
         <p className="text-sm text-muted-foreground mt-1">{user.statusMessage}</p>
       
@@ -186,3 +192,5 @@ export default function UserProfileCard({
     </Dialog>
   );
 }
+
+    

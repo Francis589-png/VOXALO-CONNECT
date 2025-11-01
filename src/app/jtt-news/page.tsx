@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Icons } from '@/components/icons';
 
 const ADMIN_EMAIL = 'jusufrancis08@gmail.com';
+const OFFICIAL_EMAIL = 'jusufrancis08@gmail.com';
 
 function CreatePostForm() {
     const { user } = useAuth();
@@ -348,6 +349,8 @@ function UserManagementPanel() {
             <div className='grid gap-4'>
                 {allUsers.map(user => {
                     const isSuspended = user.suspendedUntil && user.suspendedUntil.toDate() > new Date();
+                    const isOfficial = user.email === OFFICIAL_EMAIL;
+
                     return (
                         <Card key={user.uid}>
                             <CardHeader className="flex flex-row items-start justify-between">
@@ -358,8 +361,8 @@ function UserManagementPanel() {
                                     </Avatar>
                                     <div>
                                         <div className='flex items-center gap-2'>
-                                            <p className="font-semibold">{user.displayName}</p>
-                                            {user.isVerified && <Icons.verified className="h-5 w-5" />}
+                                            <p className="font-semibold">{isOfficial ? 'VoxaLo Connect' : user.displayName}</p>
+                                            {(user.isVerified || isOfficial) && <Icons.verified className="h-5 w-5" />}
                                         </div>
                                         <p className='text-sm text-muted-foreground'>{user.email}</p>
                                     </div>
@@ -371,68 +374,71 @@ function UserManagementPanel() {
                                             Suspended for {formatDistanceToNow(user.suspendedUntil!.toDate(), { addSuffix: true })}
                                         </Badge>
                                      )}
+                                     {isOfficial && <Badge>Official Account</Badge>}
                                 </div>
                             </CardHeader>
-                            <CardFooter className='flex flex-wrap gap-2'>
-                                <Button size="sm" variant={user.isVerified ? "secondary" : "outline"} onClick={() => handleVerify(user)}>
-                                    <Shield className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'}
-                                </Button>
-                                <Button size="sm" variant="secondary" onClick={() => handleMessage(user)}>
-                                    <MessageSquare className="mr-2 h-4 w-4" /> Message
-                                </Button>
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button size="sm" variant="destructive">
-                                            <UserCog className="mr-2 h-4 w-4" /> Actions
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent>
-                                         <DropdownMenuItem onClick={() => handleMessage(user)}>
-                                            <AlertCircle className="mr-2 h-4 w-4" />
-                                            <span>Send Warning</span>
-                                        </DropdownMenuItem>
-                                        {isSuspended ? (
-                                            <DropdownMenuItem onClick={() => handleRemoveSuspension(user)}>
-                                                <BanIcon className="mr-2 h-4 w-4" />
-                                                <span>Remove Suspension</span>
+                            {!isOfficial && (
+                                <CardFooter className='flex flex-wrap gap-2'>
+                                    <Button size="sm" variant={user.isVerified ? "secondary" : "outline"} onClick={() => handleVerify(user)}>
+                                        <Shield className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'}
+                                    </Button>
+                                    <Button size="sm" variant="secondary" onClick={() => handleMessage(user)}>
+                                        <MessageSquare className="mr-2 h-4 w-4" /> Message
+                                    </Button>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button size="sm" variant="destructive">
+                                                <UserCog className="mr-2 h-4 w-4" /> Actions
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                            <DropdownMenuItem onClick={() => handleMessage(user)}>
+                                                <AlertCircle className="mr-2 h-4 w-4" />
+                                                <span>Send Warning</span>
                                             </DropdownMenuItem>
-                                        ) : (
-                                            <DropdownMenuItem onClick={() => openSuspendDialog(user)}>
-                                                <BanIcon className="mr-2 h-4 w-4" />
-                                                <span>Suspend</span>
-                                            </DropdownMenuItem>
-                                        )}
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem
-                                                    onSelect={e => e.preventDefault()}
-                                                    className={user.isBanned ? '' : 'text-red-500 focus:text-red-500'}
-                                                >
+                                            {isSuspended ? (
+                                                <DropdownMenuItem onClick={() => handleRemoveSuspension(user)}>
                                                     <BanIcon className="mr-2 h-4 w-4" />
-                                                    <span>{user.isBanned ? 'Unban' : 'Ban'} User</span>
+                                                    <span>Remove Suspension</span>
                                                 </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        {user.isBanned
-                                                            ? 'Unbanning this user will allow them to use the app again.'
-                                                            : 'Banning this user will prevent them from logging in and using the app entirely.'
-                                                        }
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleBan(user, !user.isBanned)} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
-                                                        {user.isBanned ? 'Unban' : 'Ban'}
-                                                    </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </CardFooter>
+                                            ) : (
+                                                <DropdownMenuItem onClick={() => openSuspendDialog(user)}>
+                                                    <BanIcon className="mr-2 h-4 w-4" />
+                                                    <span>Suspend</span>
+                                                </DropdownMenuItem>
+                                            )}
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem
+                                                        onSelect={e => e.preventDefault()}
+                                                        className={user.isBanned ? '' : 'text-red-500 focus:text-red-500'}
+                                                    >
+                                                        <BanIcon className="mr-2 h-4 w-4" />
+                                                        <span>{user.isBanned ? 'Unban' : 'Ban'} User</span>
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            {user.isBanned
+                                                                ? 'Unbanning this user will allow them to use the app again.'
+                                                                : 'Banning this user will prevent them from logging in and using the app entirely.'
+                                                            }
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleBan(user, !user.isBanned)} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+                                                            {user.isBanned ? 'Unban' : 'Ban'}
+                                                        </AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </CardFooter>
+                            )}
                         </Card>
                     );
                 })}
@@ -554,3 +560,5 @@ export default function JttNewsPage() {
         </div>
     );
 }
+
+    
