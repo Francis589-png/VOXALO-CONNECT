@@ -38,6 +38,8 @@ import {
   Pin,
   PinOff,
   ClipboardCheck,
+  LogOut,
+  Ban,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { format, formatRelative, isToday } from 'date-fns';
@@ -56,7 +58,19 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { uploadFile } from '@/lib/pinata';
 import { Progress } from '../ui/progress';
@@ -66,6 +80,7 @@ import { Textarea } from '../ui/textarea';
 import { pinMessage, unpinMessage } from '@/lib/actions/chat-actions';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
+import { deleteChat, leaveGroup } from '@/lib/actions/group-actions';
 
 
 const EMOJI_REACTIONS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
@@ -438,11 +453,14 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
-
-  const canChat =
-    (selectedChat && (!selectedChat.isGroup && friendships.some(f => f.friend.uid === selectedChat.users.find(uid => uid !== currentUser.uid))) || selectedChat?.isGroup);
   
   const chatId = selectedChat?.id;
+
+  const otherUserId = useMemo(() => chatData?.users.find(u => u !== currentUser.uid), [chatData, currentUser]);
+  const isBlockedByMe = currentUserData?.blockedUsers?.includes(otherUserId || '');
+  const isBlockedByOther = otherUser?.blockedUsers?.includes(currentUser.uid);
+  const canChat = (selectedChat && !isBlockedByMe && !isBlockedByOther && ((!selectedChat.isGroup && friendships.some(f => f.friend.uid === otherUserId)) || selectedChat?.isGroup));
+
 
   if (typeof window !== 'undefined' && !deliveredSoundRef.current) {
     deliveredSoundRef.current = new Audio('/delivered.mp3');
@@ -466,6 +484,8 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         }
       });
       return () => unsubscribe();
+    } else {
+      setChatData(null);
     }
   }, [selectedChat, currentUser.uid, setGroup, onChatDeleted]);
 
@@ -728,6 +748,28 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   }
 
+  const handleLeaveGroup = async () => {
+    if (!chatId) return;
+    try {
+      await leaveGroup(chatId, currentUser.uid);
+      toast({ title: 'You have left the group.' });
+      onChatDeleted();
+    } catch (e: any) {
+      toast({ title: 'Error', description: 'Failed to leave group.', variant: 'destructive' });
+    }
+  }
+  
+  const handleDeleteChat = async () => {
+    if (!chatId || chatData?.isGroup) return;
+    try {
+      await deleteChat(chatId);
+      toast({ title: 'Chat deleted.'});
+      onChatDeleted();
+    } catch (e: any) {
+      toast({ title: 'Error', description: 'Failed to delete chat.', variant: 'destructive' });
+    }
+  }
+
 
   const getChatName = () => {
     if (!chatData) return '';
@@ -779,13 +821,20 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   }
 
   const filteredMessages = useMemo(() => {
-    if (!searchQuery) {
-        return messages;
+    let msgs = messages;
+    if (isBlockedByOther) {
+        msgs = msgs.filter(m => m.senderId === currentUser.uid);
     }
-    return messages.filter(msg => 
+    if (isBlockedByMe) {
+        msgs = msgs.filter(m => m.senderId === currentUser.uid);
+    }
+    if (!searchQuery) {
+        return msgs;
+    }
+    return msgs.filter(msg => 
         msg.text?.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [messages, searchQuery]);
+  }, [messages, searchQuery, isBlockedByMe, isBlockedByOther, currentUser.uid]);
   
   const handleToggleSelection = (messageId: string) => {
     setSelectedMessages(prev => 
@@ -896,12 +945,62 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent>
-                        {chatData?.isGroup && (
-                            <DropdownMenuItem onClick={handleOpenGroupInfo}>
-                                <UsersIcon className="mr-2 h-4 w-4" />
-                                <span>Group Info</span>
-                            </DropdownMenuItem>
+                        {chatData?.isGroup ? (
+                            <>
+                                <DropdownMenuItem onClick={handleOpenGroupInfo}>
+                                    <UsersIcon className="mr-2 h-4 w-4" />
+                                    <span>Group Info</span>
+                                </DropdownMenuItem>
+                                 <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <LogOut className="mr-2 h-4 w-4" />
+                                            <span>Leave Group</span>
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            You will be removed from this group and will no longer receive messages.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleLeaveGroup} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>Leave</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
+                        ) : (
+                             <>
+                                <DropdownMenuItem onClick={() => otherUser && handleOpenProfile(otherUser)}>
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>View Profile</span>
+                                </DropdownMenuItem>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className='text-red-500'>
+                                            <Trash2 className="mr-2 h-4 w-4" />
+                                            <span>Delete Chat</span>
+                                        </DropdownMenuItem>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will permanently delete your copy of the chat history. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleDeleteChat} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                             </>
                         )}
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => setSelectionMode(true)}>
                             <ClipboardCheck className="mr-2 h-4 w-4" />
                             <span>Select Messages</span>
@@ -1041,16 +1140,16 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 <AvatarFallback>{getChatName()?.[0]}</AvatarFallback>
             </Avatar>
             <h3 className="text-xl font-semibold">{getChatName()}</h3>
-            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{initialOtherUser?.bio}</p>
-            <p className="text-muted-foreground text-sm mt-4">
-              You are not friends with this user yet.
-              Accept their friend request or send one to start chatting.
-            </p>
+            <p className="text-muted-foreground max-w-xs mx-auto mt-1">{isBlockedByMe ? 'You have blocked this user.' : isBlockedByOther ? 'You are blocked by this user.' : (initialOtherUser?.bio || '')}</p>
+             {!isBlockedByMe && !isBlockedByOther && (
+                <p className="text-muted-foreground text-sm mt-4">
+                You are not friends with this user yet.
+                Accept their friend request or send one to start chatting.
+                </p>
+             )}
           </div>
         </div>
       )}
     </div>
   );
 }
-
-    

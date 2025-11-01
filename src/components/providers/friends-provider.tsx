@@ -86,8 +86,16 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
         const data = friendshipDoc.data();
         const friendId = data.users.find((id: string) => id !== user.uid);
         
+        const currentUserDataDoc = await getDoc(doc(db, 'users', user.uid));
+        const currentUserData = currentUserDataDoc.data() as User;
+
+
         if (!friendId) {
-            return null;
+             return {
+                id: friendshipDoc.id,
+                ...data,
+                friend: currentUserData
+             } as Friendship;
         }
 
         const userDoc = await getDoc(doc(db, 'users', friendId));
@@ -100,6 +108,7 @@ export function FriendsProvider({ children }: { children: React.ReactNode }) {
           id: friendshipDoc.id,
           ...data,
           friend,
+          blockedUsers: currentUserData.blockedUsers || [],
         } as Friendship;
       }));
       setFriendships(friendshipsData.filter(f => f && f.friend) as Friendship[]);

@@ -6,15 +6,16 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { useFriends } from '@/components/providers/friends-provider';
 import type { User } from '@/types';
-import { Check, UserPlus } from 'lucide-react';
+import { Check, UserPlus, Ban } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/use-auth';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 
 interface UserProfileCardProps {
@@ -25,17 +26,41 @@ interface UserProfileCardProps {
 }
 
 function ProfileContent({ user }: { user: User }) {
-  const { getFriendshipStatus, sendFriendRequest, incomingRequests, acceptFriendRequest, declineFriendRequest } = useFriends();
-  const status = user ? getFriendshipStatus(user.uid) : 'not-friends';
-
-  if (!user) return null;
+  const { user: currentUser } = useAuth();
+  const { toast } = useToast();
+  const { getFriendshipStatus, sendFriendRequest, incomingRequests, acceptFriendRequest, declineFriendRequest, friendships } = useFriends();
+  
+  if (!user || !currentUser) return null;
+  
+  const status = getFriendshipStatus(user.uid);
+  const isBlocked = friendships.find(f => f.friend.uid === currentUser.uid)?.blockedUsers?.includes(user.uid);
   
   const incomingRequest = incomingRequests.find(req => req.senderId === user.uid);
 
+  const handleBlock = async () => {
+    const currentUserRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(currentUserRef, {
+      blockedUsers: arrayUnion(user.uid)
+    });
+    toast({ title: `${user.displayName} blocked.`});
+  };
+
+  const handleUnblock = async () => {
+    const currentUserRef = doc(db, 'users', currentUser.uid);
+    await updateDoc(currentUserRef, {
+      blockedUsers: arrayRemove(user.uid)
+    });
+    toast({ title: `${user.displayName} unblocked.`});
+  };
+
   const renderFriendshipAction = () => {
+    if (isBlocked) {
+      return <Button variant="outline" onClick={handleUnblock}>Unblock</Button>;
+    }
+    
     switch (status) {
       case 'friends':
-        return <Button variant="secondary" disabled><Check className="mr-2" /> Friends</Button>;
+        return <Button variant="destructive" onClick={handleBlock}><Ban className='mr-2' /> Block</Button>;
       case 'pending-outgoing':
         return <Button variant="secondary" disabled>Request Sent</Button>;
       case 'pending-incoming':
@@ -61,7 +86,7 @@ function ProfileContent({ user }: { user: User }) {
           <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
           <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
         </Avatar>
-        <DialogTitle>{user.displayName}</DialogTitle>
+        <h2 className='text-xl font-semibold'>{user.displayName}</h2>
         <p className="text-sm text-muted-foreground mt-1">{user.statusMessage}</p>
       
       <div className="py-4 text-center">

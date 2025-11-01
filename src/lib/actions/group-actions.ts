@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase';
 import { uploadFile } from '@/lib/pinata';
 import type { User } from '@/types';
-import { doc, updateDoc, arrayRemove, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayRemove, arrayUnion, getDoc, collection, writeBatch, getDocs, deleteDoc } from 'firebase/firestore';
 
 export async function updateGroupDetails(
   chatId: string,
@@ -63,4 +63,20 @@ export async function addUsersToGroup(chatId: string, usersToAdd: User[]) {
 
 export async function leaveGroup(chatId: string, userId: string) {
     await removeUserFromGroup(chatId, userId);
+}
+
+export async function deleteChat(chatId: string) {
+  const chatRef = doc(db, 'chats', chatId);
+  const messagesCollectionRef = collection(chatRef, 'messages');
+
+  // Delete all messages in the subcollection
+  const messagesSnapshot = await getDocs(messagesCollectionRef);
+  const batch = writeBatch(db);
+  messagesSnapshot.docs.forEach(doc => {
+    batch.delete(doc.ref);
+  });
+  await batch.commit();
+
+  // Delete the chat document itself
+  await deleteDoc(chatRef);
 }

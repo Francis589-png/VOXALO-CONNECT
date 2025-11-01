@@ -16,6 +16,7 @@ export interface User {
   messageSentSoundEnabled?: boolean;
   bio?: string;
   theme?: 'light' | 'dark' | 'system';
+  blockedUsers?: string[];
 }
 
 export interface ReplyMessage {
