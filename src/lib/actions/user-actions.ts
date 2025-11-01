@@ -17,3 +17,5 @@ export async function banUser(uid: string, isBanned: boolean) {
     await updateDoc(userRef, { isBanned });
     revalidatePath('/profile/[id]', 'page');
 }
+
+    
