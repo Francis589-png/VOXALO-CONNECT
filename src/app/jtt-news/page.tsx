@@ -163,7 +163,7 @@ function PostCard({ post, canDelete }: { post: JttNewsPost; canDelete: boolean }
         <Card className="overflow-hidden">
             {post.imageURL && (
                 <div className="relative w-full aspect-video">
-                    <Image src={post.imageURL} alt="Post image" fill className="object-cover" />
+                    <Image src={post.imageURL} alt="Post image" fill />
                 </div>
             )}
             <CardHeader className="flex flex-row items-center gap-3">
