@@ -2,13 +2,14 @@
 'use client';
 
 import type { User } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, serverTimestamp, updateDoc, getDoc } from 'firebase/firestore';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useEffect, useState } from 'react';
 import { auth, db } from '@/lib/firebase';
 import Loading from '@/app/loading';
 import { onValue, ref, onDisconnect, set, serverTimestamp as rtdbServerTimestamp, getDatabase } from 'firebase/database';
+import { formatDistanceToNow } from 'date-fns';
 
 
 type AuthContextType = {
@@ -27,11 +28,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const rtdb = getDatabase();
         const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.isBanned) {
+            await signOut(auth);
+            setUser(null);
+            router.push('/login');
+            setLoading(false);
+            return;
+          }
+          if (userData.suspendedUntil && userData.suspendedUntil.toDate() > new Date()) {
+            await signOut(auth);
+            setUser(null);
+            const timeLeft = formatDistanceToNow(userData.suspendedUntil.toDate());
+            router.push(`/login?suspended=${encodeURIComponent(timeLeft)}`);
+            setLoading(false);
+            return;
+          }
+        }
+
+        setUser(user);
+        
+        const rtdb = getDatabase();
         const userStatusRef = ref(rtdb, `status/${user.uid}`);
         
         const isOfflineForFirestore = {
@@ -71,12 +94,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         });
 
+      } else {
+        setUser(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;

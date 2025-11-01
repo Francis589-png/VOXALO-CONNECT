@@ -19,6 +19,7 @@ export interface User {
   blockedUsers?: string[];
   isVerified?: boolean;
   isBanned?: boolean;
+  suspendedUntil?: Timestamp | null;
 }
 
 export interface ReplyMessage {
@@ -167,5 +168,3 @@ export interface Feedback {
     originalFeedback: string;
     createdAt: Timestamp;
 }
-
-    

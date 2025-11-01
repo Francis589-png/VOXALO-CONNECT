@@ -30,6 +30,7 @@ import {
     AlertDialogTrigger,
   } from '@/components/ui/alert-dialog';
 import { useEffect, useState } from 'react';
+import { Icons } from '../icons';
 
 interface UserProfileCardProps {
   user: User | null;
@@ -131,7 +132,7 @@ function ProfileContent({ user }: { user: User }) {
         </Avatar>
         <div className='flex items-center gap-2'>
             <h2 className='text-xl font-semibold'>{user.displayName}</h2>
-            {user.isVerified && <ShieldCheck className="h-5 w-5 text-blue-500" />}
+            {user.isVerified && <Icons.verified className="h-5 w-5" />}
         </div>
         <p className="text-sm text-muted-foreground mt-1">{user.statusMessage}</p>
       

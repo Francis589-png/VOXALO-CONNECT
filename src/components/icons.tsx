@@ -100,4 +100,42 @@ export const Icons = {
         <path d="M12 5.5a6.5 6.5 0 1 0 6.5 6.5A6.51 6.51 0 0 0 12 5.5Zm0 11a4.5 4.5 0 1 1 4.5-4.5A4.5 4.5 0 0 1 12 16.5Z"/>
     </svg>
   ),
+  verified: (props: LucideProps) => (
+     <svg
+      {...props}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id="verified-grad" x1="12" y1="2" x2="12" y2="22">
+          <stop stopColor="#007BFF" />
+          <stop offset="1" stopColor="#0056b3" />
+        </linearGradient>
+        <filter id="verified-shadow" x="-20%" y="-10%" width="140%" height="140%">
+            <feDropShadow dx="1" dy="2" stdDeviation="1" floodColor="#007BFF" floodOpacity="0.5"/>
+        </filter>
+      </defs>
+      <g filter="url(#verified-shadow)">
+        {/* Back plate for 3D effect */}
+        <path
+            d="M21.5 12.5C21.5 17.4706 17.4706 21.5 12.5 21.5C7.52944 21.5 3.5 17.4706 3.5 12.5C3.5 7.52944 7.52944 3.5 12.5 3.5C17.4706 3.5 21.5 7.52944 21.5 12.5Z"
+            fill="#004a8c"
+        />
+        {/* Main Badge */}
+        <path
+          d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z"
+          fill="url(#verified-grad)"
+        />
+        {/* Checkmark */}
+        <path
+          d="M9 12L11.5 14.5L15 10"
+          stroke="white"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </g>
+    </svg>
+  ),
 };

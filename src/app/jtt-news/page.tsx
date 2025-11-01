@@ -1,7 +1,7 @@
 
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData, getDocs } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, serverTimestamp, deleteDoc, doc, DocumentData, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import type { JttNewsPost, Feedback, User } from '@/types';
@@ -11,18 +11,21 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { formatRelative } from 'date-fns';
+import { formatRelative, formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Image from 'next/image';
 import { uploadFile } from '@/lib/pinata';
-import { AlertTriangle, ExternalLink, ImagePlus, Loader2, MessageSquareQuote, Send, Trash2, ShieldCheck, BanIcon, MessageSquare, Users } from 'lucide-react';
+import { AlertTriangle, ExternalLink, ImagePlus, Loader2, MessageSquareQuote, Send, Trash2, ShieldCheck, BanIcon, MessageSquare, Users, UserCog, AlertCircle, Shield } from 'lucide-react';
 import Link from 'next/link';
-import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { setUserVerification, banUser } from '@/lib/actions/user-actions';
+import { setUserVerification, banUser, suspendUser, removeSuspension } from '@/lib/actions/user-actions';
 import { useFriends } from '@/components/providers/friends-provider';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Icons } from '@/components/icons';
 
 const ADMIN_EMAIL = 'jusufrancis08@gmail.com';
 
@@ -242,103 +245,197 @@ function FeedbackCard({ feedback }: { feedback: Feedback }) {
 function UserManagementPanel() {
     const { user: currentUser } = useAuth();
     const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [isSuspendDialogOpen, setIsSuspendDialogOpen] = useState(false);
+    const [userToSuspend, setUserToSuspend] = useState<User | null>(null);
+    const [suspensionDuration, setSuspensionDuration] = useState('1');
     const { createChat } = useFriends();
     const router = useRouter();
     const { toast } = useToast();
 
     useEffect(() => {
-        const fetchUsers = async () => {
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const usersData = usersSnapshot.docs.map(d => d.data() as User).filter(u => u.uid !== currentUser?.uid);
+        const q = query(collection(db, 'users'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const usersData = snapshot.docs.map(d => ({ ...d.data(), uid: d.id }) as User).filter(u => u.uid !== currentUser?.uid);
             setAllUsers(usersData);
-        };
-        fetchUsers();
+        });
+        return () => unsubscribe();
     }, [currentUser]);
 
     const handleVerify = async (userToVerify: User) => {
         try {
             await setUserVerification(userToVerify.uid, !userToVerify.isVerified);
-            setAllUsers(prev => prev.map(u => u.uid === userToVerify.uid ? { ...u, isVerified: !u.isVerified } : u));
             toast({ title: `User ${!userToVerify.isVerified ? 'verified' : 'unverified'}.` });
         } catch (error) {
             toast({ title: 'Error', description: 'Failed to update verification status.', variant: 'destructive' });
         }
     };
-
-    const handleBan = async (userToBan: User) => {
+    
+    const handleBan = async (userToBan: User, ban: boolean) => {
         try {
-            await banUser(userToBan.uid, !userToBan.isBanned);
-            setAllUsers(prev => prev.map(u => u.uid === userToBan.uid ? { ...u, isBanned: !u.isBanned } : u));
-            toast({ title: `User ${!userToBan.isBanned ? 'banned' : 'unbanned'}.` });
+            await banUser(userToBan.uid, ban);
+            toast({ title: `User ${ban ? 'banned' : 'unbanned'}.` });
         } catch (error) {
             toast({ title: 'Error', description: 'Failed to update ban status.', variant: 'destructive' });
         }
     };
     
     const handleMessage = async (userToMessage: User) => {
+        if (!currentUser) return;
         const chat = await createChat(userToMessage);
         router.push(`/?chatId=${chat.id}`);
     }
 
+    const openSuspendDialog = (user: User) => {
+        setUserToSuspend(user);
+        setIsSuspendDialogOpen(true);
+    };
+
+    const handleSuspend = async () => {
+        if (!userToSuspend) return;
+        try {
+            await suspendUser(userToSuspend.uid, parseInt(suspensionDuration));
+            toast({ title: 'User suspended.' });
+            setIsSuspendDialogOpen(false);
+        } catch (error) {
+            toast({ title: 'Error', description: 'Failed to suspend user.', variant: 'destructive' });
+        }
+    };
+    
+    const handleRemoveSuspension = async (user: User) => {
+        try {
+            await removeSuspension(user.uid);
+            toast({ title: 'Suspension removed.' });
+        } catch (error) {
+             toast({ title: 'Error', description: 'Failed to remove suspension.', variant: 'destructive' });
+        }
+    }
+
+
     return (
         <div className="mb-8">
+            <Dialog open={isSuspendDialogOpen} onOpenChange={setIsSuspendDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Suspend {userToSuspend?.displayName}</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <p className='mb-2 text-sm text-muted-foreground'>Select suspension duration:</p>
+                        <Select value={suspensionDuration} onValueChange={setSuspensionDuration}>
+                             <SelectTrigger>
+                                <SelectValue placeholder="Select duration" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="1">1 Hour</SelectItem>
+                                <SelectItem value="24">1 Day</SelectItem>
+                                <SelectItem value="168">7 Days</SelectItem>
+                                <SelectItem value="720">30 Days</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button variant="outline">Cancel</Button>
+                        </DialogClose>
+                        <Button onClick={handleSuspend} variant="destructive">Suspend</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div className="flex items-center gap-2 mb-4">
                 <Users className="h-6 w-6 text-primary" />
                 <h2 className="text-2xl font-bold">User Management</h2>
             </div>
             <div className='grid gap-4'>
-                {allUsers.map(user => (
-                    <Card key={user.uid}>
-                        <CardHeader className="flex flex-row items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Avatar>
-                                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
-                                    <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <div className='flex items-center gap-2'>
-                                        <p className="font-semibold">{user.displayName}</p>
-                                        {user.isVerified && <ShieldCheck className="h-5 w-5 text-blue-500" />}
+                {allUsers.map(user => {
+                    const isSuspended = user.suspendedUntil && user.suspendedUntil.toDate() > new Date();
+                    return (
+                        <Card key={user.uid}>
+                            <CardHeader className="flex flex-row items-start justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Avatar>
+                                        <AvatarImage src={user.photoURL || undefined} alt={user.displayName || ''} />
+                                        <AvatarFallback>{user.displayName?.[0]}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <div className='flex items-center gap-2'>
+                                            <p className="font-semibold">{user.displayName}</p>
+                                            {user.isVerified && <Icons.verified className="h-5 w-5" />}
+                                        </div>
+                                        <p className='text-sm text-muted-foreground'>{user.email}</p>
                                     </div>
-                                    <p className='text-sm text-muted-foreground'>{user.email}</p>
                                 </div>
-                            </div>
-                             {user.isBanned && <Badge variant="destructive">BANNED</Badge>}
-                        </CardHeader>
-                        <CardFooter className='flex gap-2'>
-                            <Button size="sm" variant="outline" onClick={() => handleVerify(user)}>
-                                <ShieldCheck className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'}
-                            </Button>
-                            <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="destructive">
-                                        <BanIcon className="mr-2 h-4 w-4" /> {user.isBanned ? 'Unban' : 'Ban'}
-                                    </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                        <AlertDialogTitle>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            {user.isBanned
-                                                ? 'Unbanning this user will allow them to use the app again.'
-                                                : 'Banning this user will prevent them from logging in and using the app entirely.'
-                                            }
-                                        </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleBan(user)} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
-                                            {user.isBanned ? 'Unban' : 'Ban'}
-                                        </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                </AlertDialogContent>
-                            </AlertDialog>
-                            <Button size="sm" variant="secondary" onClick={() => handleMessage(user)}>
-                                <MessageSquare className="mr-2 h-4 w-4" /> Message
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ))}
+                                <div className='flex flex-col items-end gap-1'>
+                                     {user.isBanned && <Badge variant="destructive">BANNED</Badge>}
+                                     {isSuspended && (
+                                        <Badge variant="destructive" className='bg-orange-500'>
+                                            Suspended for {formatDistanceToNow(user.suspendedUntil!.toDate(), { addSuffix: true })}
+                                        </Badge>
+                                     )}
+                                </div>
+                            </CardHeader>
+                            <CardFooter className='flex flex-wrap gap-2'>
+                                <Button size="sm" variant={user.isVerified ? "secondary" : "outline"} onClick={() => handleVerify(user)}>
+                                    <Shield className="mr-2 h-4 w-4" /> {user.isVerified ? 'Unverify' : 'Verify'}
+                                </Button>
+                                <Button size="sm" variant="secondary" onClick={() => handleMessage(user)}>
+                                    <MessageSquare className="mr-2 h-4 w-4" /> Message
+                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button size="sm" variant="destructive">
+                                            <UserCog className="mr-2 h-4 w-4" /> Actions
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                         <DropdownMenuItem onClick={() => handleMessage(user)}>
+                                            <AlertCircle className="mr-2 h-4 w-4" />
+                                            <span>Send Warning</span>
+                                        </DropdownMenuItem>
+                                        {isSuspended ? (
+                                            <DropdownMenuItem onClick={() => handleRemoveSuspension(user)}>
+                                                <BanIcon className="mr-2 h-4 w-4" />
+                                                <span>Remove Suspension</span>
+                                            </DropdownMenuItem>
+                                        ) : (
+                                            <DropdownMenuItem onClick={() => openSuspendDialog(user)}>
+                                                <BanIcon className="mr-2 h-4 w-4" />
+                                                <span>Suspend</span>
+                                            </DropdownMenuItem>
+                                        )}
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem
+                                                    onSelect={e => e.preventDefault()}
+                                                    className={user.isBanned ? '' : 'text-red-500 focus:text-red-500'}
+                                                >
+                                                    <BanIcon className="mr-2 h-4 w-4" />
+                                                    <span>{user.isBanned ? 'Unban' : 'Ban'} User</span>
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>{user.isBanned ? 'Unban' : 'Ban'} {user.displayName}?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        {user.isBanned
+                                                            ? 'Unbanning this user will allow them to use the app again.'
+                                                            : 'Banning this user will prevent them from logging in and using the app entirely.'
+                                                        }
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleBan(user, !user.isBanned)} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+                                                        {user.isBanned ? 'Unban' : 'Ban'}
+                                                    </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </CardFooter>
+                        </Card>
+                    );
+                })}
             </div>
         </div>
     );
