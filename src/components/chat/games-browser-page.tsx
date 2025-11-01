@@ -159,7 +159,6 @@ export default function GamesBrowserPage() {
                         title="CrazyGames"
                         className="h-full w-full border-0"
                         allow="fullscreen; payment; autoplay; execution-while-not-rendered; cross-origin-isolated"
-                        sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-scripts allow-same-origin"
                     />
                 </div>
             );
@@ -214,4 +213,3 @@ export default function GamesBrowserPage() {
         </div>
     );
 }
-
