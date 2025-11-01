@@ -48,6 +48,7 @@ type MainView = 'chat' | 'feedback';
 export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [isInitialChatLoaded, setIsInitialChatLoaded] = useState(false);
   const [search, setSearch] = useState('');
   const isMobile = useIsMobile();
   const totalUnreadCount = useTotalUnreadCount(currentUser.uid);
@@ -66,17 +67,17 @@ export default function ChatLayout({ currentUser, initialChatId }: ChatLayoutPro
 
   useEffect(() => {
     const fetchInitialChat = async () => {
-        if (initialChatId) {
+        if (initialChatId && !isInitialChatLoaded) {
             const chatRef = doc(db, 'chats', initialChatId);
             const chatSnap = await getDoc(chatRef);
             if (chatSnap.exists()) {
                 handleSelectChat({ id: chatSnap.id, ...chatSnap.data() } as Chat);
             }
+            setIsInitialChatLoaded(true);
         }
     };
     fetchInitialChat();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialChatId]);
+  }, [initialChatId, isInitialChatLoaded]);
 
 
   useEffect(() => {
