@@ -1,19 +1,12 @@
-
 'use server';
-/**
- * @fileOverview A flow for submitting user feedback.
- *
- * - submitFeedback - A function that takes user feedback text and stores it.
- */
 
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
-import { db } from '@/lib/firebase-admin';
-
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export async function submitFeedback(feedbackText: string): Promise<void> {
-  // Save the original feedback to Firestore
-  await db.collection('feedback').add({
+  // Save the original feedback to Firestore using the client SDK
+  await addDoc(collection(db, 'feedback'), {
     originalFeedback: feedbackText,
-    createdAt: Timestamp.now(),
+    createdAt: serverTimestamp(),
   });
 }
