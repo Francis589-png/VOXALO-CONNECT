@@ -94,9 +94,10 @@ interface AssistantViewProps {
 
 export default function AssistantView({ currentUser, onBack }: AssistantViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isInputDisabled, setIsInputDisabled] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -117,11 +118,16 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    const text = inputRef.current?.value;
+    if (!text?.trim()) return;
 
-    const text = newMessage;
-    setNewMessage('');
+    if (inputRef.current) {
+      inputRef.current.value = '';
+      inputRef.current.focus();
+    }
+    
     setIsLoading(true);
+    setIsInputDisabled(true);
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -168,6 +174,7 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
+      setIsInputDisabled(false);
     }
   };
 
@@ -236,8 +243,7 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
                 className="flex items-start gap-2"
             >
                 <Textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    ref={inputRef}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -246,14 +252,14 @@ export default function AssistantView({ currentUser, onBack }: AssistantViewProp
                     }}
                     placeholder='Ask VoxaLo AI or type /imagine...'
                     autoComplete="off"
-                    disabled={isLoading}
+                    disabled={isInputDisabled}
                     className="bg-background/80"
                     maxRows={5}
                 />
                 <Button
                     type="submit"
                     size="icon"
-                    disabled={isLoading || !newMessage.trim()}
+                    disabled={isInputDisabled}
                     className='shrink-0'
                 >
                     <Send className="h-5 w-5" />

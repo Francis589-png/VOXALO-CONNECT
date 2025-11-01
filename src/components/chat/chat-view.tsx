@@ -389,9 +389,10 @@ function MessageBubble({
 
 export default function ChatView({ currentUser, selectedChat, onBack, onChatDeleted }: ChatViewProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
   const { friendships } = useFriends();
   const [chatData, setChatData] = useState<Chat | null>(null);
   const [currentUserData, setCurrentUserData] = useState<AppUser | null>(null);
@@ -557,10 +558,11 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !chatData) return;
+    if (!inputRef.current?.value.trim() || !chatData) return;
 
-    const text = newMessage;
-    setNewMessage('');
+    const text = inputRef.current.value;
+    inputRef.current.value = '';
+    inputRef.current.focus();
 
     const messageData = {
         type: 'text' as const,
@@ -853,8 +855,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 </Button>
 
                 <Textarea
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
+                    ref={inputRef}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -870,7 +871,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 <Button
                     type="submit"
                     size="icon"
-                    disabled={uploading || !newMessage.trim()}
+                    disabled={uploading}
                     className='shrink-0'
                 >
                     <Send className="h-5 w-5" />
