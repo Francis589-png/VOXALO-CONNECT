@@ -25,7 +25,7 @@ export const requestNotificationPermission = async (userId: string) => {
         // IMPORTANT: Replace with your actual VAPID key from the Firebase console.
         // Go to Project settings > Cloud Messaging > Web configuration and click "Generate key pair".
         const currentToken = await getToken(messaging, {
-            vapidKey: 'YOUR_VAPID_KEY_FROM_FIREBASE_CONSOLE',
+            vapidKey: 'BLGaqubC732o1i-CYvHytjsWnsLKojI6DNam8tUjromOEoKSioD55AZtbE4Pvi2eg2kpXq4zTq_IiDBOjl0TU5w',
         });
         if (currentToken) {
             console.log('FCM Token:', currentToken);
