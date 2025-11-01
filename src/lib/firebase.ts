@@ -6,13 +6,13 @@ import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getMessaging } from 'firebase/messaging';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD5A3eoJms-tQIttDDHZKIsUTp2elSL3BY",
-  authDomain: "voxalo-x.firebaseapp.com",
-  projectId: "voxalo-x",
-  storageBucket: "voxalo-x.firebasestorage.app",
-  messagingSenderId: "218806636116",
-  appId: "1:218806636116:web:2ec151f5500021b38067c1",
-  databaseURL: "https://voxalo-x-default-rtdb.firebaseio.com"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
