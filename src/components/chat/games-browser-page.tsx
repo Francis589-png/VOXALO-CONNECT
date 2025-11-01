@@ -130,7 +130,11 @@ export default function GamesBrowserPage() {
 
     const renderContent = () => {
         if (loading) {
-            return Array.from({ length: 6 }).map((_, i) => <GameCardSkeleton key={i} />);
+            return (
+                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => <GameCardSkeleton key={i} />)}
+                </div>
+            );
         }
         
         if (error) {
@@ -149,17 +153,14 @@ export default function GamesBrowserPage() {
         
         if (source === 'crazygames') {
             return (
-                <div className="p-4 col-span-full text-center">
-                    <h3 className="text-lg font-semibold">CrazyGames</h3>
-                    <p className="text-muted-foreground mb-4">
-                        Explore thousands of free games directly on the CrazyGames website.
-                    </p>
-                    <Button asChild>
-                        <a href="https://www.crazygames.com" target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Visit CrazyGames.com
-                        </a>
-                    </Button>
+                <div className="h-full w-full">
+                     <iframe
+                        src="https://www.crazygames.com/"
+                        title="CrazyGames"
+                        className="h-full w-full border-0"
+                        allow="fullscreen; payment; autoplay; execution-while-not-rendered; cross-origin-isolated"
+                        sandbox="allow-forms allow-modals allow-orientation-lock allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation allow-scripts allow-same-origin"
+                    />
                 </div>
             );
         }
@@ -184,9 +185,13 @@ export default function GamesBrowserPage() {
             )
         }
         
-        return validGames.map((game, index) => (
-            <GameCard key={`${source}-${(game as any).id}-${index}`} game={game} source={source} />
-        ));
+        return (
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {validGames.map((game, index) => (
+                    <GameCard key={`${source}-${(game as any).id}-${index}`} game={game} source={source} />
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -204,10 +209,9 @@ export default function GamesBrowserPage() {
                 </Select>
             </div>
             <ScrollArea className="flex-1">
-                <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {renderContent()}
-                </div>
+                {renderContent()}
             </ScrollArea>
         </div>
     );
 }
+
