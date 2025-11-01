@@ -49,7 +49,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: '**.mypinata.cloud',
+        hostname: '*.mypinata.cloud',
         port: '',
         pathname: '/**',
       }
