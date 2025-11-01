@@ -186,6 +186,8 @@ function MessageBubble({
   isSelected,
   onToggleSelection,
   onLongPress,
+  isEditing,
+  onSetEditing,
 }: {
   message: Message;
   isOwnMessage: boolean;
@@ -202,8 +204,9 @@ function MessageBubble({
   isSelected: boolean;
   onToggleSelection: (messageId: string) => void;
   onLongPress: (message: Message) => void;
+  isEditing: boolean;
+  onSetEditing: (isEditing: boolean) => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(message.text || '');
   const isMobile = useIsMobile();
   const pressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -228,7 +231,7 @@ function MessageBubble({
     if (editText.trim() !== message.text) {
         onSaveEdit(message.id, editText.trim());
     }
-    setIsEditing(false);
+    onSetEditing(false);
   }
   
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -272,12 +275,12 @@ function MessageBubble({
                             e.preventDefault();
                             handleSaveEdit();
                         } else if (e.key === 'Escape') {
-                            setIsEditing(false);
+                            onSetEditing(false);
                         }
                     }}
                 />
                  <div className="flex justify-end gap-2 text-xs">
-                    <Button variant="link" size="sm" className="p-0 h-auto text-primary-foreground/80" onClick={() => setIsEditing(false)}>Cancel</Button>
+                    <Button variant="link" size="sm" className="p-0 h-auto text-primary-foreground/80" onClick={() => onSetEditing(false)}>Cancel</Button>
                     <Button variant="link" size="sm" className="p-0 h-auto text-primary-foreground/80" onClick={handleSaveEdit}>Save</Button>
                  </div>
             </div>
@@ -450,7 +453,7 @@ function MessageBubble({
                     <span>Pin</span>
                 </DropdownMenuItem>
                 {isOwnMessage && message.type === 'text' && (
-                  <DropdownMenuItem onClick={() => setIsEditing(true)}>
+                  <DropdownMenuItem onClick={() => onSetEditing(true)}>
                     <Pencil className="mr-2 h-4 w-4" />
                     <span>Edit</span>
                   </DropdownMenuItem>
@@ -579,7 +582,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
   
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
-
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [mobileOptionsMessage, setMobileOptionsMessage] = useState<Message | null>(null);
   
   const chatId = selectedChat?.id;
@@ -852,6 +855,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
         text: newText,
         editedAt: serverTimestamp(),
     });
+    setEditingMessageId(null);
   };
   
   const handlePinMessage = async (message: Message) => {
@@ -1001,6 +1005,19 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'ArrowUp' && !inputRef.current?.value) {
+        e.preventDefault();
+        const lastUserMessage = [...messages].reverse().find(m => m.senderId === currentUser.uid && m.type === 'text');
+        if (lastUserMessage) {
+            setEditingMessageId(lastUserMessage.id);
+        }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSendMessage(e);
+    }
+  };
 
   if (!selectedChat) {
     return (
@@ -1045,9 +1062,9 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                 }
             }}
             onEdit={() => {
-                // This is a bit tricky, we need to find the component to set its state
-                // For now, we just log it. A better implementation might use a context or callback
-                console.log("Editing from mobile not fully implemented yet without major refactor");
+                if (mobileOptionsMessage) {
+                    setEditingMessageId(mobileOptionsMessage.id);
+                }
             }}
             onDeleteForMe={handleDeleteForMe}
             onDeleteForEveryone={handleDeleteForEveryone}
@@ -1208,6 +1225,14 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
                         isSelected={selectedMessages.includes(message.id)}
                         onToggleSelection={handleToggleSelection}
                         onLongPress={setMobileOptionsMessage}
+                        isEditing={editingMessageId === message.id}
+                        onSetEditing={(isEditing) => {
+                            if (!isEditing) {
+                                setEditingMessageId(null);
+                            } else {
+                                setEditingMessageId(message.id);
+                            }
+                        }}
                     />
                     );
                 })}
@@ -1263,12 +1288,7 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
 
                     <Textarea
                         ref={inputRef}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSendMessage(e);
-                            }
-                        }}
+                        onKeyDown={handleKeyDown}
                         placeholder={'Type a message...'}
                         autoComplete="off"
                         disabled={uploading}
@@ -1308,5 +1328,3 @@ export default function ChatView({ currentUser, selectedChat, onBack, onChatDele
     </div>
   );
 }
-
-    
