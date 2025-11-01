@@ -73,6 +73,7 @@ function CreatePostForm() {
             setLink('');
             setImage(null);
             setImagePreview(null);
+            if(fileInputRef.current) fileInputRef.current.value = '';
             toast({ title: 'Post created successfully!' });
         } catch (error) {
             console.error(error);
@@ -105,10 +106,23 @@ function CreatePostForm() {
                     {imagePreview && (
                          <div className="relative w-full aspect-video rounded-md overflow-hidden">
                             <Image src={imagePreview} alt="Image preview" fill objectFit="cover" />
+                             <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-2 right-2 h-7 w-7"
+                                onClick={() => {
+                                    setImage(null);
+                                    setImagePreview(null);
+                                    if(fileInputRef.current) fileInputRef.current.value = '';
+                                }}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
                         </div>
                     )}
-                    <div className='flex items-center gap-4'>
-                        <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
+                    <div className='flex items-center justify-end gap-2'>
+                        <Button size="sm" type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
                             <ImagePlus className="mr-2 h-4 w-4" /> Add Image
                         </Button>
                         <Input
@@ -118,7 +132,7 @@ function CreatePostForm() {
                             accept="image/*"
                             className="hidden"
                         />
-                        <Button type="submit" disabled={isLoading} className='ml-auto'>
+                        <Button size="sm" type="submit" disabled={isLoading || !text.trim()}>
                             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                              Post
                         </Button>
