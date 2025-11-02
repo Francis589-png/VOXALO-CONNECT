@@ -57,6 +57,12 @@ const nextConfig: NextConfig = {
         hostname: '*.mypinata.cloud',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },
