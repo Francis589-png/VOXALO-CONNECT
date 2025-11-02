@@ -26,7 +26,9 @@ export async function uploadFile(file: File): Promise<string> {
             }
         );
         const gateway = PINATA_GATEWAY_URL.startsWith('http') ? PINATA_GATEWAY_URL : `https://${PINATA_GATEWAY_URL}`;
-        return `${gateway}/ipfs/${res.data.IpfsHash}`;
+        // Corrected URL construction: Removed the extra "/ipfs/" path.
+        // Dedicated gateways resolve hashes from the root.
+        return `${gateway}/${res.data.IpfsHash}`;
     } catch (error) {
         console.error('Error uploading file to Pinata:', error);
         throw new Error(`Error uploading file to Pinata: ${error}`);
